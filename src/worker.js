@@ -2,6 +2,7 @@
 import { ensureSchema, currentEdition } from "./db.js";
 import { handleAuth, currentUser } from "./auth.js";
 import { romeNow, editionDays, dayState, weekday, isIsoDate } from "./time.js";
+import { handleDonazioni, premiPerGiorno, etichettaPremio, donatorePubblico, isAiutante } from "./donazioni.js";
 
 const JSONH = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: JSONH });
@@ -47,6 +48,7 @@ function publicEdition(ed) {
     titolo: ed.titolo, sottotitolo: ed.sottotitolo, intro: ed.intro,
     come_funziona: ed.come_funziona, regolamento: ed.regolamento,
     tappe: JSON.parse(ed.tappe || "[]"),
+    donazioni_fino: ed.donazioni_fino, aiutanti_intro: ed.aiutanti_intro || "",
   };
 }
 
@@ -75,6 +77,9 @@ async function route(req, env, url, user) {
 
   if (p === "/api/stato" && m === "GET") return stato(env, url, user, ed);
 
+  const dr = await handleDonazioni(req, env, url, user, ed, today(url, user));
+  if (dr) return dr;
+
   let r;
   if ((r = p.match(/^\/api\/giorno\/(\d{1,2})$/)) && m === "GET") return giorno(env, url, user, ed, Number(r[1]));
   if ((r = p.match(/^\/api\/img\/(\d{1,2})\/(full|thumb)$/)) && m === "GET") return immagine(env, url, user, ed, Number(r[1]), r[2]);
@@ -95,13 +100,15 @@ async function route(req, env, url, user) {
 
     if (p === "/api/admin/giorni" && m === "GET") {
       const { results } = await env.DB.prepare(
-        "SELECT edition,n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,premio,stato_capitolo,img_ver,updated_at,updated_by FROM days WHERE edition=? ORDER BY n"
+        "SELECT edition,n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,stato_capitolo,img_ver,updated_at,updated_by FROM days WHERE edition=? ORDER BY n"
       ).bind(ed.year).all();
       const days = editionDays(ed);
+      const premi = await premiPerGiorno(env, ed.year);
       return json({
         giorni: days.map((d) => {
           const row = results.find((x) => x.n === d.n) || { n: d.n };
-          return { ...row, data: d.data, wd: weekday(d.data), risposte: JSON.parse(row.risposte || "[]") };
+          const pr = premi.get(d.n);
+          return { ...row, data: d.data, wd: weekday(d.data), risposte: JSON.parse(row.risposte || "[]"), premio: pr ? etichettaPremio(pr) : "", premio_da: pr ? donatorePubblico(pr).frase : "" };
         }),
       });
     }
@@ -119,16 +126,16 @@ async function route(req, env, url, user) {
           return err(400, "Per un giorno di sfida servono la domanda, almeno due risposte e quella giusta");
       }
       await env.DB.prepare(
-        `INSERT INTO days(edition,n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,premio,stato_capitolo,updated_at,updated_by)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `INSERT INTO days(edition,n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,stato_capitolo,updated_at,updated_by)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
          ON CONFLICT(edition,n) DO UPDATE SET tipo=excluded.tipo, etichetta=excluded.etichetta, titolo=excluded.titolo,
            testo=excluded.testo, fuoco=excluded.fuoco, domanda=excluded.domanda, risposte=excluded.risposte,
-           giusta=excluded.giusta, premio=excluded.premio, stato_capitolo=excluded.stato_capitolo,
+           giusta=excluded.giusta, stato_capitolo=excluded.stato_capitolo,
            updated_at=excluded.updated_at, updated_by=excluded.updated_by`
       ).bind(
         ed.year, n, tipo, str(b.etichetta, 24), str(b.titolo, 120), str(b.testo, 20000),
         FUOCHI.has(b.fuoco) ? b.fuoco : "centro",
-        str(b.domanda, 300), JSON.stringify(risposte), giusta, str(b.premio, 120),
+        str(b.domanda, 300), JSON.stringify(risposte), giusta,
         ["manca", "bozza", "pronto"].includes(b.stato_capitolo) ? b.stato_capitolo : "bozza",
         Date.now(), user.global_name || user.username
       ).run();
@@ -170,6 +177,7 @@ async function route(req, env, url, user) {
       if (!b) return err(400, "Dati non validi");
       const dates = ["inizio", "fine", "consegna_da", "consegna_a"];
       for (const k of dates) if (!isIsoDate(b[k])) return err(400, "Controlla le date");
+      if (!isIsoDate(b.donazioni_fino)) return err(400, "Controlla la scadenza delle offerte");
       if (b.fine < b.inizio) return err(400, "La fine deve venire dopo l'inizio");
       const count = Math.round((new Date(b.fine) - new Date(b.inizio)) / 86400000) + 1;
       if (count > 31) return err(400, "Il calendario può durare al massimo 31 giorni");
@@ -180,9 +188,10 @@ async function route(req, env, url, user) {
         : [];
       const stmts = [env.DB.prepare(
         `UPDATE editions SET inizio=?, fine=?, consegna_da=?, consegna_a=?, titolo=?, sottotitolo=?, intro=?,
-         come_funziona=?, regolamento=?, tappe=? WHERE year=?`
+         come_funziona=?, regolamento=?, tappe=?, donazioni_fino=?, aiutanti_intro=? WHERE year=?`
       ).bind(b.inizio, b.fine, b.consegna_da, b.consegna_a, str(b.titolo, 80), str(b.sottotitolo, 120),
-        str(b.intro, 600), str(b.come_funziona, 4000), str(b.regolamento, 12000), JSON.stringify(tappe), ed.year)];
+        str(b.intro, 600), str(b.come_funziona, 4000), str(b.regolamento, 12000), JSON.stringify(tappe),
+        b.donazioni_fino, str(b.aiutanti_intro, 3000), ed.year)];
       for (let n = 1; n <= count; n++) {
         stmts.push(env.DB.prepare("INSERT OR IGNORE INTO days(edition,n,titolo) VALUES(?,?,?)").bind(ed.year, n, `Capitolo ${n}`));
       }
@@ -223,7 +232,7 @@ async function stato(env, url, user, ed) {
   });
 
   return json({
-    utente: publicUser(user),
+    utente: user ? { ...publicUser(user), aiutante: await isAiutante(env, user, ed.year) } : null,
     edizione: publicEdition(ed),
     oggi, prima, dopo, chiuso,
     simulata: isAdmin && oggi !== romeNow().date,
@@ -241,14 +250,16 @@ async function giorno(env, url, user, ed, n) {
   const st = dayState(d.data, oggi);
   if ((st === "sigillata" || oggi < ed.inizio) && !isAdmin) return err(403, "Questa busta è ancora sigillata");
   const row = await env.DB.prepare(
-    "SELECT n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,premio,img_ver FROM days WHERE edition=? AND n=?"
+    "SELECT n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,img_ver FROM days WHERE edition=? AND n=?"
   ).bind(ed.year, n).first() || { n };
   const out = {
     n, data: d.data, wd: weekday(d.data), stato: st,
     tipo: row.tipo || "sorteggio", etichetta: row.etichetta || "", titolo: row.titolo || "", testo: row.testo || "",
-    premio: row.premio || "", fuoco: row.fuoco || "centro",
+    premio: "", premio_da: null, fuoco: row.fuoco || "centro",
     immagine: row.img_ver ? `/api/img/${n}/full?v=${row.img_ver}` : null,
   };
+  const pr = (await premiPerGiorno(env, ed.year)).get(n);
+  if (pr) { out.premio = etichettaPremio(pr); out.premio_da = donatorePubblico(pr); }
   if (out.tipo === "sfida") {
     out.domanda = row.domanda || "";
     out.risposte = JSON.parse(row.risposte || "[]");

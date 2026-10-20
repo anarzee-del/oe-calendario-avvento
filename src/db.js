@@ -1,8 +1,9 @@
 // Schema del database e dati iniziali. Lo schema si crea da solo alla prima richiesta.
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
-const STATEMENTS = [
+// Ogni versione contiene solo le modifiche rispetto alla precedente.
+const V1 = [
   `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`,
   `CREATE TABLE IF NOT EXISTS users (
      id TEXT PRIMARY KEY, username TEXT, global_name TEXT, avatar TEXT,
@@ -36,6 +37,35 @@ const STATEMENTS = [
      mime TEXT NOT NULL, data BLOB NOT NULL,
      PRIMARY KEY (edition, n, kind))`,
 ];
+
+const V2 = [
+  `CREATE TABLE IF NOT EXISTS donazioni (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     edition INTEGER NOT NULL,
+     user_id TEXT,
+     donatore_nome TEXT,
+     tipo TEXT NOT NULL DEFAULT 'oggetto',
+     descrizione TEXT,
+     quantita INTEGER NOT NULL DEFAULT 1,
+     gil INTEGER,
+     anonimo INTEGER NOT NULL DEFAULT 0,
+     nota TEXT,
+     stato TEXT NOT NULL DEFAULT 'offerta',
+     giorno INTEGER,
+     created_at INTEGER, updated_at INTEGER, gestita_da TEXT)`,
+  `CREATE INDEX IF NOT EXISTS donazioni_ed ON donazioni(edition, stato)`,
+  `ALTER TABLE days ADD COLUMN premio_id INTEGER`,
+  `ALTER TABLE editions ADD COLUMN donazioni_fino TEXT`,
+  `ALTER TABLE editions ADD COLUMN aiutanti_intro TEXT`,
+  `UPDATE editions SET donazioni_fino = printf('%d-11-30', year) WHERE donazioni_fino IS NULL`,
+  `UPDATE editions SET aiutanti_intro = 'Vuoi aiutare il postino a riempire la sua sacca? Offri un premio per il calendario: un oggetto in gioco oppure dei GIL.
+
+Compila il modulo qui sotto, poi consegna il dono in gioco a uno degli admin (Altea Skysinger o Ignus) entro la scadenza indicata. Quando lo riceviamo, la tua offerta risulterà "Ricevuta".
+
+A dicembre, sotto il premio del giorno, comparirà il tuo nome, oppure "un aiutante anonimo" se preferisci. Sul tuo profilo comparirà il segno di Aiutante. È Natale: il grazie è tutto per te.' WHERE aiutanti_intro IS NULL`,
+];
+
+const MIGRATIONS = { 1: V1, 2: V2 };
 
 const COME_FUNZIONA_2026 = `Ogni giorno alle 00:00 si apre una busta con un nuovo capitolo della storia.
 
@@ -79,8 +109,21 @@ export async function ensureSchema(env) {
     const v = await env.DB.prepare("SELECT value FROM settings WHERE key='schema_version'").first();
     version = v ? Number(v.value) : 0;
   }
+  if (version < 1) {
+    await env.DB.batch(V1.map((s) => env.DB.prepare(s)));
+    await seed(env);
+    version = 1;
+  }
+  for (let v = version + 1; v <= SCHEMA_VERSION; v++) {
+    try {
+      await env.DB.batch(MIGRATIONS[v].map((s) => env.DB.prepare(s)));
+    } catch (e) {
+      // Un'altra richiesta potrebbe aver già applicato la stessa migrazione
+      const cur = await env.DB.prepare("SELECT value FROM settings WHERE key='schema_version'").first();
+      if (!cur || Number(cur.value) < v) throw e;
+    }
+  }
   if (version < SCHEMA_VERSION) {
-    await env.DB.batch(STATEMENTS.map((s) => env.DB.prepare(s)));
     await env.DB.prepare(
       "INSERT INTO settings(key,value) VALUES('schema_version',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value"
     ).bind(String(SCHEMA_VERSION)).run();

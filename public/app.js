@@ -12,12 +12,14 @@ const ICO = {
   fiocco: '<svg viewBox="0 0 24 24" fill="none" stroke="#2A1A05" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v20M3.3 7l17.4 10M3.3 17l17.4-10"/></svg>',
   spunta: '<svg viewBox="0 0 24 24" width="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
   lucchetto: '<svg class="lucchetto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  dono: '<svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="1"/><path d="M3 13h18M12 9v12M12 9c-2-4-6-4-6-1.5S9 9 12 9c3 0 6-.5 6-1.5S14 5 12 9Z"/></svg>',
   discord: '<svg viewBox="0 0 24 24" width="18" fill="currentColor" aria-hidden="true"><path d="M19.6 5.3A16.6 16.6 0 0 0 15.5 4l-.5 1a15.3 15.3 0 0 0-6 0L8.5 4a16.6 16.6 0 0 0-4.1 1.3C1.8 9.2 1.1 13 1.4 16.7a16.8 16.8 0 0 0 5 2.5l1.1-1.7a10.8 10.8 0 0 1-1.7-.8l.4-.3a11.9 11.9 0 0 0 10.2 0l.4.3c-.5.3-1.1.6-1.7.8l1.1 1.7a16.7 16.7 0 0 0 5-2.5c.4-4.3-.7-8.1-3-11.4ZM8.7 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.6 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/></svg>',
 };
 const ACCESSO = {
   server: "Per entrare devi far parte del server Discord di Our Elysion.",
   annullato: "Accesso annullato. Puoi riprovare quando vuoi.",
   scaduto: "L'accesso ha impiegato troppo tempo. Riprova.",
+  dono: '<svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="1"/><path d="M3 13h18M12 9v12M12 9c-2-4-6-4-6-1.5S9 9 12 9c3 0 6-.5 6-1.5S14 5 12 9Z"/></svg>',
   discord: "Discord non ha risposto. Riprova tra poco.",
   configurazione: "Il login non è ancora configurato: avvisa lo staff.",
 };
@@ -66,7 +68,7 @@ function renderTesta() {
   $("#footer-consegne").textContent = `Le consegne dei premi avvengono in gioco dal ${dataLunga(ed.consegna_da)} al ${dataLunga(ed.consegna_a)}.`;
   document.title = (ed.titolo ? ed.titolo + " · " : "") + "Avvento Our Elysion";
 
-  const voci = [["calendario", "Calendario"], ["regolamento", "Regolamento"]];
+  const voci = [["calendario", "Calendario"], ["aiutanti", "Aiutanti"], ["regolamento", "Regolamento"]];
   if (connesso()) voci.push(["profilo", "Il mio profilo"]);
   if (admin()) voci.push(["staff", "Area staff"]);
   const attiva = S.vista === "casella" ? "calendario" : S.vista;
@@ -172,7 +174,7 @@ async function vCasella(n) {
   const testo = paragrafi(g.testo);
   const anteprima = g.stato === "sigillata" ? `<div class="avviso"><span class="stato warn">Anteprima staff</span><p>Questa busta è ancora sigillata per i giocatori: la vedi solo tu.</p></div>` : "";
   let azione = `<div class="pannello" style="display:grid;gap:14px">`;
-  if (g.premio) azione += `<div class="premio"><span class="label">Premio del giorno</span><b>${esc(g.premio)}</b></div>`;
+  if (g.premio) azione += `<div class="premio"><span class="label">Premio del giorno</span><b>${esc(g.premio)}</b>${g.premio_da ? `<span class="aiuto">${esc(g.premio_da.frase)}</span>` : ""}</div>`;
   if (g.tipo === "sfida") {
     azione += `<div><span class="label" style="color:var(--primary)">Sfida${g.etichetta ? " di " + esc(g.etichetta) : ""}</span>
       <p style="font-size:18px;margin-top:6px;font-weight:600">${esc(g.domanda || "La domanda della sfida comparirà qui.")}</p>
@@ -205,22 +207,23 @@ function vProfilo() {
   const u = S.dati.utente;
   if (!u) return `<div class="pannello sigillata-box"><h2>Accedi per vedere il tuo profilo</h2><a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi con Discord</a></div>`;
   const dc = u.dc || "Light";
-  return `<div class="pagina-h"><span class="label">Il mio profilo</span><h2>${esc(u.nome)}</h2><p>@${esc(u.username)} su Discord</p></div>
+  return `<div class="pagina-h"><span class="label">Il mio profilo</span><h2>${esc(u.nome)}</h2><p>@${esc(u.username)} su Discord</p>${u.aiutante ? `<span class="segno-aiutante">${ICO.dono} Aiutante del postino</span>` : ""}</div>
   <section class="pannello" style="max-width:560px"><h3>Dove consegnarti i premi</h3><p class="sub">Il personaggio e il mondo su cui ti consegneremo eventuali premi in gioco.</p>
     <form id="form-profilo">
       <div class="campo"><label for="pg">Nome del personaggio</label><input type="text" id="pg" maxlength="40" value="${esc(u.pg)}" placeholder="Nome Cognome" autocomplete="off"></div>
       <div class="due"><div class="campo"><label for="dc">Data center</label><select id="dc">${Object.keys(MONDI).map((x) => `<option ${x === dc ? "selected" : ""}>${x}</option>`).join("")}</select></div>
       <div class="campo"><label for="mondo">Mondo</label><select id="mondo">${MONDI[dc].map((m) => `<option ${m === u.mondo ? "selected" : ""}>${m}</option>`).join("")}</select></div></div>
       <button class="btn" type="submit">Salva</button>
-    </form></section>`;
+    </form></section>
+  <p style="margin-top:18px"><a href="#aiutanti">${u.aiutante ? "Le tue offerte per il calendario" : "Vuoi offrire un premio? Diventa un aiutante"}</a></p>`;
 }
 
 /* ---------- area staff ---------- */
 async function vStaff() {
   if (!admin()) return `<div class="pannello sigillata-box"><h2>Area riservata allo staff</h2></div>`;
-  const nav = [["giorni", "Giorni e capitoli"], ["testi", "Testi e date"]];
+  const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["testi", "Testi e date"]];
   const head = `<div class="staff"><nav class="staff-nav" aria-label="Sezioni staff">${nav.map(([k, t]) => `<button data-sez="${k}" aria-current="${S.staffSez === k}">${t}</button>`).join("")}
-    <p class="aiuto" style="padding:10px 12px">Premi, regole, estrazioni, partecipanti, messaggi e consegne arrivano nei prossimi aggiornamenti.</p></nav><section id="staff-corpo"><p class="caricamento">Caricamento…</p></section></div>`;
+    <p class="aiuto" style="padding:10px 12px">Regole, estrazioni, partecipanti, messaggi e consegne arrivano nei prossimi aggiornamenti.</p></nav><section id="staff-corpo"><p class="caricamento">Caricamento…</p></section></div>`;
   return head;
 }
 
@@ -228,6 +231,7 @@ async function riempiStaff() {
   const corpo = $("#staff-corpo");
   if (!corpo) return;
   if (S.staffSez === "testi") { corpo.innerHTML = formTesti(); return; }
+  if (S.staffSez === "premi") return riempiPremi();
   try { S.adminGiorni = (await api("/api/admin/giorni")).giorni; }
   catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
   corpo.innerHTML = S.staffGiorno ? editorGiorno(S.adminGiorni.find((g) => g.n === S.staffGiorno)) : listaGiorni();
@@ -245,7 +249,7 @@ function listaGiorni() {
     return `<div class="giorno-card">
       <span class="gn">${x.n}<small>${GG[x.wd]} ${dataBreve(x.data)}</small></span>
       <span class="mini">${x.img_ver ? `<img src="/api/img/${x.n}/thumb?v=${x.img_ver}" alt="" loading="lazy">` : ""}</span>
-      <span class="gt"><b>${esc(x.titolo || "Senza titolo")}</b><span class="fila">${pill(c, t)}${x.tipo === "sfida" ? pill("", "Sfida" + (x.etichetta ? " · " + esc(x.etichetta) : "")) : ""}</span></span>
+      <span class="gt"><b>${esc(x.titolo || "Senza titolo")}</b><span class="fila">${pill(c, t)}${x.tipo === "sfida" ? pill("", "Sfida" + (x.etichetta ? " · " + esc(x.etichetta) : "")) : ""}</span><span class="aiuto">${x.premio ? "Premio: " + esc(x.premio) : "Nessun premio assegnato"}</span></span>
       <button class="btn sec" data-staffday="${x.n}">Modifica</button></div>`;
   }).join("")}</div>`;
 }
@@ -284,7 +288,7 @@ function editorGiorno(g) {
       <div class="due">
         <div class="campo"><label for="e-tipo">Tipo di giorno</label><select id="e-tipo"><option value="sorteggio" ${!sfida ? "selected" : ""}>Sorteggio</option><option value="sfida" ${sfida ? "selected" : ""}>Sfida</option></select></div>
         <div class="campo"><label for="e-etichetta">Etichetta sul nastro</label><input type="text" id="e-etichetta" maxlength="24" value="${esc(g.etichetta)}" placeholder="Es. S. Nicola"><span class="aiuto">Compare sulla busta nei giorni di sfida. Vuota: "Sfida".</span></div>
-        <div class="campo"><label for="e-premio">Premio del giorno</label><input type="text" id="e-premio" maxlength="120" value="${esc(g.premio)}" placeholder="Es. 500.000 GIL"></div>
+        <div class="campo"><span class="label" style="color:var(--ink)">Premio del giorno</span><p style="font-size:16px">${g.premio ? `<b>${esc(g.premio)}</b> <span class="aiuto">${esc(g.premio_da)}</span>` : "Nessun premio assegnato"}</p><span class="aiuto">Si assegna dalla sezione <button type="button" class="btn quieto piccolo" data-sez="premi">Premi e aiutanti</button></span></div>
       </div>
       <div id="ed-sfida" ${sfida ? "" : "hidden"}>
         <div class="campo"><label for="e-domanda">Domanda della sfida</label><input type="text" id="e-domanda" maxlength="300" value="${esc(g.domanda)}"></div>
@@ -320,6 +324,9 @@ function formTesti() {
     <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Traguardi della community</h3>
       <div class="tappe-ed">${tappe.map((t, i) => `<div class="tappa-ed"><div class="campo"><label for="ts${i}">Tappa ${i + 1}: lettere</label><input type="number" min="1" id="ts${i}" value="${esc(t.s)}"></div><div class="campo"><label for="tb${i}">Biscotti ai partecipanti</label><input type="number" min="0" id="tb${i}" value="${esc(t.b)}"></div></div>`).join("")}</div>
       <p class="aiuto">L'ultima tappa è il traguardo finale e sblocca il capitolo bonus. Lascia vuota una riga per toglierla.</p></div>
+    <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Aiutanti</h3>
+      <div class="due">${d("t-dfino", "Offerte aperte fino al", ed.donazioni_fino)}</div>
+      <div class="campo"><label for="t-aiut">Testo della pagina Aiutanti</label><textarea id="t-aiut" style="min-height:200px">${esc(ed.aiutanti_intro)}</textarea><span class="aiuto">Spiega come consegnare i doni e a chi. Lascia una riga vuota tra i paragrafi.</span></div></div>
     <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Come funziona</h3>
       <div class="campo"><label for="t-come">Passaggi</label><textarea id="t-come" style="min-height:200px">${esc(ed.come_funziona)}</textarea><span class="aiuto">Un passaggio per paragrafo, separati da una riga vuota.</span></div></div>
     <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Regolamento</h3>
@@ -377,18 +384,22 @@ async function inviaImmagine(n, full, thumb) {
 async function render() {
   const v = $("#vista");
   if (S.vista === "casella") { renderTesta(); return vCasella(S.giorno); }
-  v.innerHTML = S.vista === "regolamento" ? vRegolamento() : S.vista === "profilo" ? vProfilo() : S.vista === "staff" ? await vStaff() : vCalendario();
+  v.innerHTML = S.vista === "regolamento" ? vRegolamento() : S.vista === "aiutanti" ? `<p class="caricamento">Caricamento…</p>` : S.vista === "profilo" ? vProfilo() : S.vista === "staff" ? await vStaff() : vCalendario();
   if (S.vista === "staff") riempiStaff();
+  if (S.vista === "aiutanti") vAiutanti();
 }
 
 function leggiHash() {
   const h = (location.hash || "").slice(1);
   if (/^casella-\d+$/.test(h)) { S.vista = "casella"; S.giorno = Number(h.split("-")[1]); }
-  else if (["regolamento", "profilo", "staff", "calendario"].includes(h)) S.vista = h;
+  else if (["regolamento", "profilo", "staff", "calendario", "aiutanti"].includes(h)) S.vista = h;
   else S.vista = "calendario";
 }
-window.addEventListener("hashchange", () => {
-  leggiHash(); renderTesta(); render();
+window.addEventListener("hashchange", async () => {
+  leggiHash();
+  if (!S.dati) return; // il primo caricamento disegnerà la vista giusta
+  if (S.vista === "profilo" || S.vista === "calendario") { try { S.dati = await api(conSim("/api/stato")); } catch {} }
+  renderTesta(); render();
   $("#vista").focus({ preventScroll: true });
   window.scrollTo({ top: Math.max(0, $(".testata").offsetHeight - 10), behavior: "smooth" });
 });
@@ -460,7 +471,7 @@ document.addEventListener("submit", async (e) => {
     const giusta = f.querySelector("input[name=giusta]:checked");
     const body = {
       titolo: $("#e-titolo").value, testo: $("#e-testo").value, stato_capitolo: $("#e-stato").value,
-      tipo: $("#e-tipo").value, etichetta: $("#e-etichetta").value, premio: $("#e-premio").value, fuoco: $("#e-fuoco").value,
+      tipo: $("#e-tipo").value, etichetta: $("#e-etichetta").value, fuoco: $("#e-fuoco").value,
       domanda: $("#e-domanda").value, risposte: [0, 1, 2, 3].map((i) => $("#r" + i).value), giusta: giusta ? Number(giusta.value) : null,
     };
     try { await putJson(`/api/admin/giorno/${n}`, body); toast(`Casella ${n} salvata`); $("#ed-mod").hidden = true; S.dati = await api(conSim("/api/stato")); }
@@ -472,6 +483,7 @@ document.addEventListener("submit", async (e) => {
       inizio: $("#t-inizio").value, fine: $("#t-fine").value, consegna_da: $("#t-cda").value, consegna_a: $("#t-ca").value,
       titolo: $("#t-titolo").value, sottotitolo: $("#t-sotto").value, intro: $("#t-intro").value,
       come_funziona: $("#t-come").value, regolamento: $("#t-reg").value, tappe,
+      donazioni_fino: $("#t-dfino").value, aiutanti_intro: $("#t-aiut").value,
     };
     try { await putJson("/api/admin/edizione", body); toast("Testi e date salvati"); await carica(); }
     catch (err) { toast(err.message); }
@@ -506,3 +518,147 @@ size();
 try { new ResizeObserver(() => { size(); disegna(false); }).observe(cv); } catch { addEventListener("resize", () => { size(); disegna(false); }); }
 disegna(false);
 if (!matchMedia("(prefers-reduced-motion: reduce)").matches) (function loop() { disegna(true); requestAnimationFrame(loop); })();
+
+/* ---------- aiutanti del postino ---------- */
+const STATO_DONO = { offerta: ["warn", "Da consegnare"], ricevuta: ["ok", "Ricevuta"], rifiutata: ["err", "Non accettata"] };
+const dataOra = (ms) => new Date(ms).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+
+function campiDono(pref, conTipo = true) {
+  return `${conTipo ? `<fieldset class="scelta-tipo"><legend class="label" style="margin-bottom:8px">Cosa vuoi offrire</legend>
+      <label class="scelta" for="${pref}-t-ogg"><input type="radio" name="${pref}-tipo" id="${pref}-t-ogg" value="oggetto" checked> Un oggetto in gioco</label>
+      <label class="scelta" for="${pref}-t-gil"><input type="radio" name="${pref}-tipo" id="${pref}-t-gil" value="gil"> Dei GIL</label></fieldset>` : ""}
+    <div class="due" id="${pref}-ogg">
+      <div class="campo"><label for="${pref}-desc">Oggetto</label><input type="text" id="${pref}-desc" maxlength="100" placeholder="Es. Pure White Dye"></div>
+      <div class="campo"><label for="${pref}-qta">Quantità</label><input type="number" id="${pref}-qta" min="1" max="999" value="1"></div>
+    </div>
+    <div class="campo" id="${pref}-gil" hidden><label for="${pref}-gilv">Quanti GIL</label><input type="number" id="${pref}-gilv" min="1" step="1" placeholder="Es. 500000"></div>`;
+}
+function leggiDono(pref) {
+  const tipo = document.querySelector(`input[name=${pref}-tipo]:checked`)?.value || "oggetto";
+  return { tipo, descrizione: $(`#${pref}-desc`).value, quantita: Number($(`#${pref}-qta`).value || 1), gil: Number($(`#${pref}-gilv`).value || 0) };
+}
+
+async function vAiutanti() {
+  const v = $("#vista");
+  let a;
+  try { a = await api(conSim("/api/aiutanti")); } catch (e) { v.innerHTML = `<div class="avviso"><p>${esc(e.message)}</p></div>`; return; }
+  if (S.vista !== "aiutanti") return;
+  const u = S.dati.utente;
+  let modulo;
+  if (!a.aperte) modulo = `<section class="pannello"><h3>Offerte chiuse</h3><p class="sub">Le offerte per questa edizione si sono chiuse il ${dataLunga(a.fino)}. Grazie a tutti gli aiutanti!</p></section>`;
+  else if (!u) modulo = `<section class="pannello"><h3>Offri un premio</h3><p class="sub">Accedi con il tuo account Discord del server Our Elysion per registrare la tua offerta.</p><a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi con Discord</a></section>`;
+  else modulo = `<section class="pannello"><h3>Offri un premio</h3><p class="sub">Puoi registrare più offerte. Scadenza: ${dataLunga(a.fino)}.</p>
+    <form id="form-dono">${campiDono("d")}
+      <fieldset style="border:0;padding:0;margin:0 0 14px"><legend class="label" style="margin-bottom:8px">Sotto il premio, a dicembre</legend>
+        <label class="scelta" for="d-nome"><input type="radio" name="d-anon" id="d-nome" value="0" checked> Mostra il mio nome: <b>${esc(u.nome)}</b></label>
+        <label class="scelta" for="d-anon"><input type="radio" name="d-anon" id="d-anon" value="1"> Resta anonimo</label>
+        <span class="aiuto">Lo staff vede comunque chi ha donato cosa.</span></fieldset>
+      <div class="campo"><label for="d-nota">Nota per lo staff (facoltativa)</label><input type="text" id="d-nota" maxlength="300" placeholder="Es. quando sei online per la consegna"></div>
+      <button class="btn" type="submit">Registra l'offerta</button>
+    </form></section>`;
+  const mie = u && a.mie.length ? `<section class="pannello"><h3>Le tue offerte</h3><div class="doni">${a.mie.map((d) => {
+    const [c, t] = STATO_DONO[d.stato];
+    return `<div class="dono"><div class="dono-t"><b>${esc(d.etichetta)}</b><span class="fila">${pill(c, t)}${d.anonimo ? pill("", "Anonimo") : ""}</span></div>
+      <div class="fila"><button class="btn quieto piccolo" data-act="mio-anon" data-id="${d.id}" data-v="${d.anonimo ? 0 : 1}">${d.anonimo ? "Mostra il mio nome" : "Rendi anonimo"}</button>
+      ${d.stato === "offerta" ? `<button class="btn quieto piccolo" data-act="mio-ritira" data-id="${d.id}">Ritira</button>` : ""}</div></div>`;
+  }).join("")}</div>
+    ${a.mie.some((d) => d.stato === "offerta") ? `<p class="aiuto" style="margin-top:10px">"Da consegnare": consegna il dono in gioco a uno degli admin. Quando lo riceviamo diventa "Ricevuta".</p>` : ""}</section>` : "";
+  const grazie = `<section class="pannello"><h3>Grazie a</h3>${a.aiutanti.length || a.anonimi ? `<ul class="grazie">${a.aiutanti.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>${a.anonimi ? `<p class="aiuto" style="margin-top:8px">e ${a.anonimi === 1 ? "un aiutante anonimo" : a.anonimi + " aiutanti anonimi"}</p>` : ""}` : `<p class="sub">Ancora nessun dono ricevuto. Il primo nome potrebbe essere il tuo!</p>`}</section>`;
+  v.innerHTML = `<div class="pagina-h"><span class="label">Edizione ${S.dati.edizione.anno}</span><h2>Gli aiutanti del postino</h2>
+    ${paragrafi(a.intro).map((p) => `<p>${esc(p)}</p>`).join("")}</div>
+    <div class="sotto" style="margin-top:0"><div style="display:grid;gap:24px">${modulo}${mie}</div>${grazie}</div>`;
+}
+
+async function riempiPremi() {
+  const corpo = $("#staff-corpo");
+  let a, giorni;
+  try { [a, giorni] = await Promise.all([api("/api/admin/donazioni"), api("/api/admin/giorni").then((x) => x.giorni)]); }
+  catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
+  S.adminDoni = a; S.adminGiorni = giorni;
+  const f = S.filtroDoni || "tutte";
+  const conta = (st) => a.donazioni.filter((d) => d.stato === st).length;
+  const assegnati = a.donazioni.filter((d) => d.giorno).length;
+  const lista = a.donazioni.filter((d) => f === "tutte" || d.stato === f || (f === "libere" && d.stato === "ricevuta" && !d.giorno));
+  const filtri = [["tutte", "Tutte", a.donazioni.length], ["offerta", "Da ricevere", conta("offerta")], ["libere", "Ricevute da assegnare", a.donazioni.filter((d) => d.stato === "ricevuta" && !d.giorno).length], ["rifiutata", "Non accettate", conta("rifiutata")]];
+  corpo.innerHTML = `<h2>Premi e aiutanti</h2><p class="intro">Le offerte della community e i premi dello staff. Offerte aperte fino al ${dataLunga(a.fino)}${a.aperte ? "" : " (chiuse)"}.</p>
+  <div class="stats">
+    <div class="stat"><b>${conta("offerta")}</b><span>Da ricevere in gioco</span></div>
+    <div class="stat"><b>${conta("ricevuta")}</b><span>Ricevute</span></div>
+    <div class="stat"><b>${assegnati}/${giorni.length}</b><span>Giorni con un premio</span></div>
+  </div>
+  <div class="fila filtri" role="group" aria-label="Filtra">${filtri.map(([k, t, n]) => `<button class="btn ${f === k ? "" : "sec"} piccolo" data-act="filtro-doni" data-f="${k}">${t} · ${n}</button>`).join("")}</div>
+  <div class="doni" style="margin-top:14px">${lista.length ? lista.map((d) => cardDono(d, giorni, a.donazioni)).join("") : `<p class="prossimamente">Nessun dono in questo elenco.</p>`}</div>
+  <details class="pannello" style="margin-top:22px" ${a.donazioni.length ? "" : "open"}><summary><b>Aggiungi un premio dello staff</b> <span class="aiuto">o un dono ricevuto fuori dal sito</span></summary>
+    <form id="form-dono-staff" style="margin-top:14px">${campiDono("s")}
+      <div class="due"><div class="campo"><label for="s-chi">Donato da</label><select id="s-chi"><option value="">Staff di Our Elysion</option><option value="__nome">Un altro nome…</option>${a.utenti.map((x) => `<option value="${esc(x.id)}">${esc(x.nome)}</option>`).join("")}</select></div>
+      <div class="campo" id="s-nome-box" hidden><label for="s-nome">Nome da mostrare</label><input type="text" id="s-nome" maxlength="60"></div></div>
+      <label class="scelta" for="s-anon" style="margin-bottom:14px"><input type="checkbox" id="s-anon"> Mostra come anonimo</label>
+      <button class="btn" type="submit">Aggiungi come ricevuto</button>
+    </form></details>`;
+}
+
+function cardDono(d, giorni, tutti) {
+  const [c, t] = STATO_DONO[d.stato];
+  const chi = d.user_id ? `${esc(d.u_nome || "?")} <span class="aiuto">@${esc(d.u_username || "")}${d.u_pg ? " · " + esc(d.u_pg) + (d.u_mondo ? " (" + esc(d.u_mondo) + ")" : "") : ""}</span>` : esc(d.donatore_nome || "Staff di Our Elysion");
+  const occupati = new Map(tutti.filter((x) => x.giorno && x.id !== d.id).map((x) => [x.giorno, x.etichetta]));
+  const sel = d.stato === "ricevuta" ? `<label class="aiuto" for="g-${d.id}">Giorno</label><select id="g-${d.id}" data-act-change="assegna" data-id="${d.id}"><option value="">Non assegnato</option>${giorni.map((g) => `<option value="${g.n}" ${d.giorno === g.n ? "selected" : ""}>${g.n} · ${GG[g.wd]} ${dataBreve(g.data)}${occupati.has(g.n) ? " · al posto di " + esc(occupati.get(g.n)) : ""}</option>`).join("")}</select>` : "";
+  return `<div class="dono">
+    <div class="dono-t"><b>${esc(d.etichetta)}</b><span class="fila">${pill(c, t)}${d.anonimo ? pill("", "Anonimo") : ""}${d.giorno ? pill("acc", "Giorno " + d.giorno) : ""}</span></div>
+    <p class="dono-chi">Da ${chi}</p>
+    <p class="aiuto">Sul sito: "${esc(d.pubblico)}" · registrata il ${dataOra(d.created_at)}${d.gestita_da ? " · ultima modifica: " + esc(d.gestita_da) : ""}</p>
+    ${d.nota ? `<p class="dono-nota">“${esc(d.nota)}”</p>` : ""}
+    <div class="fila">${d.stato === "offerta" ? `<button class="btn piccolo" data-act="dono-stato" data-id="${d.id}" data-s="ricevuta">Ricevuto</button><button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="rifiutata">Non accettare</button>` : ""}
+      ${d.stato === "ricevuta" ? sel + `<button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="offerta">Annulla "ricevuto"</button>` : ""}
+      ${d.stato === "rifiutata" ? `<button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="offerta">Riapri</button>` : ""}
+      <button class="btn quieto piccolo" data-act="dono-anon" data-id="${d.id}" data-v="${d.anonimo ? 0 : 1}">${d.anonimo ? "Mostra il nome" : "Rendi anonimo"}</button>
+      <button class="btn quieto piccolo pericolo-testo" data-act="dono-elimina" data-id="${d.id}">Elimina</button></div>
+  </div>`;
+}
+
+document.addEventListener("change", async (e) => {
+  const t = e.target;
+  const m = t.name && t.name.match(/^(d|s)-tipo$/);
+  if (m) { const gil = t.value === "gil"; $(`#${m[1]}-ogg`).hidden = gil; $(`#${m[1]}-gil`).hidden = !gil; }
+  if (t.id === "s-chi") $("#s-nome-box").hidden = t.value !== "__nome";
+  if (t.dataset.actChange === "assegna") {
+    try { await putJson(`/api/admin/donazione/${t.dataset.id}`, { giorno: t.value ? Number(t.value) : null }); toast(t.value ? `Premio assegnato al giorno ${t.value}` : "Premio tolto dal giorno"); riempiPremi(); }
+    catch (err) { toast(err.message); }
+  }
+});
+
+document.addEventListener("click", async (e) => {
+  const a = e.target.closest("[data-act]");
+  if (!a) return;
+  const act = a.dataset.act, id = a.dataset.id;
+  try {
+    if (act === "filtro-doni") { S.filtroDoni = a.dataset.f; riempiPremi(); }
+    if (act === "dono-stato") { await putJson(`/api/admin/donazione/${id}`, { stato: a.dataset.s }); toast(a.dataset.s === "ricevuta" ? "Segnato come ricevuto" : "Stato aggiornato"); riempiPremi(); }
+    if (act === "dono-anon") { await putJson(`/api/admin/donazione/${id}`, { anonimo: a.dataset.v === "1" }); riempiPremi(); }
+    if (act === "dono-elimina") {
+      if (a.dataset.conferma !== "1") { a.dataset.conferma = "1"; a.textContent = "Conferma eliminazione"; a.classList.add("conferma"); return; }
+      await api(`/api/admin/donazione/${id}`, { method: "DELETE" }); toast("Dono eliminato"); riempiPremi();
+    }
+    if (act === "mio-anon") { await putJson(`/api/donazioni/${id}`, { anonimo: a.dataset.v === "1" }); vAiutanti(); }
+    if (act === "mio-ritira") {
+      if (a.dataset.conferma !== "1") { a.dataset.conferma = "1"; a.textContent = "Conferma: ritira l'offerta"; return; }
+      await api(`/api/donazioni/${id}`, { method: "DELETE" }); toast("Offerta ritirata"); vAiutanti();
+    }
+  } catch (err) { toast(err.message); }
+});
+
+document.addEventListener("submit", async (e) => {
+  const f = e.target;
+  if (f.id === "form-dono") {
+    e.preventDefault();
+    const body = { ...leggiDono("d"), anonimo: document.querySelector("input[name=d-anon]:checked")?.value === "1", nota: $("#d-nota").value };
+    try { await api("/api/donazioni", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); toast("Offerta registrata. Grazie!"); vAiutanti(); }
+    catch (err) { toast(err.message); }
+  }
+  if (f.id === "form-dono-staff") {
+    e.preventDefault();
+    const chi = $("#s-chi").value;
+    const body = { ...leggiDono("s"), anonimo: $("#s-anon").checked, user_id: chi && chi !== "__nome" ? chi : null, donatore_nome: chi === "__nome" ? $("#s-nome").value : null };
+    try { await api("/api/admin/donazioni", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); toast("Premio aggiunto al montepremi"); riempiPremi(); }
+    catch (err) { toast(err.message); }
+  }
+});

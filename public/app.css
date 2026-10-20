@@ -1,4 +1,5 @@
 /* Aggiunte al foglio di stile del prototipo per il sito vero */
+[hidden]{display:none!important}
 .caricamento{color:var(--muted);font-family:var(--f-label);padding-block:40px}
 .btn.piccolo{padding:6px 10px;font-size:13px}
 .demo input[type=date]{font:inherit;padding:6px 10px;border-radius:4px;border:1px solid currentColor;background:transparent;color:inherit}
@@ -50,3 +51,21 @@ img.illustrazione{padding:0;background:none;height:auto}
 .storia p.vuoto{color:var(--muted)}
 .storia p.vuoto::first-letter{all:unset}
 a.btn,a.btn-discord{text-decoration:none}
+.segno-aiutante{display:inline-flex;gap:6px;align-items:center;justify-self:start;background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--ink);border-radius:999px;padding:6px 12px;font-family:var(--f-label);font-weight:700;font-size:13px}
+.scelta-tipo{border:0;padding:0;margin:0 0 14px;display:grid;gap:8px}
+.doni{display:grid;gap:10px}
+.dono{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--bg);display:grid;gap:8px}
+.dono-t{display:flex;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;align-items:center}
+.dono-t b{font-family:var(--f-display);font-size:22px;line-height:1.1;overflow-wrap:anywhere}
+.dono-chi{font-family:var(--f-label);font-size:15px}
+.dono-nota{font-size:15px;color:var(--muted);font-style:italic}
+.dono select{width:auto;max-width:100%;padding:6px 8px;font-size:14px}
+.grazie{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:8px}
+.grazie li{background:var(--ice);border-radius:999px;padding:6px 12px;font-family:var(--f-label);font-weight:600;font-size:14px}
+.filtri{gap:6px}
+.btn.pericolo-testo{color:var(--err)}
+.btn.conferma{background:var(--err);color:#fff;border-color:var(--err)}
+details.pannello summary{cursor:pointer;display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}
+.pagina-h p + p{margin-top:2px}
+#vista:focus{outline:none}
+#form-dono fieldset{display:grid;gap:8px}
