@@ -1,0 +1,40 @@
+{
+  // Calendario dell'Avvento di Our Elysion — configurazione Cloudflare Workers
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "oe-avvento",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": true },
+
+  // Pagine e file statici (grafica, script). Le richieste /api/* passano dal worker.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Indirizzo pubblico del calendario
+  "routes": [
+    { "pattern": "calendario-avvento.ourelysion.com", "custom_domain": true }
+  ],
+  "workers_dev": false,
+
+  // Database (capitoli, immagini, utenti, partecipazioni)
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "oe-avvento",
+      "database_id": "82f1395b-8101-4fe0-bed9-1713cd6e2fac"
+    }
+  ],
+
+  // Valori pubblici (non segreti). Il Client Secret di Discord va inserito come SEGRETO
+  // nel pannello Cloudflare con il nome DISCORD_CLIENT_SECRET.
+  "vars": {
+    "BASE_URL": "https://calendario-avvento.ourelysion.com",
+    "DISCORD_CLIENT_ID": "1562223620326031370",
+    "DISCORD_GUILD_ID": "879276560228692039",
+    "ADMIN_IDS": "647754156894978064,315933826155282433"
+  }
+}

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calendario dell'Avvento · Our Elysion</title>
+<meta name="description" content="Il calendario dell'Avvento della community italiana di FFXIV Our Elysion: una lettera al giorno dal 1 al 25 dicembre.">
+<meta property="og:title" content="Calendario dell'Avvento · Our Elysion">
+<meta property="og:description" content="Una lettera al giorno dal 1 al 25 dicembre. Leggi il capitolo, partecipa e aiuta a ritrovare le lettere.">
+<meta property="og:image" content="/logo.png">
+<meta name="theme-color" content="#0F2638">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Josefin+Sans:wght@400;600;700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="demo" id="barra-staff" hidden>
+  <div class="wrap">
+    <strong>Anteprima staff</strong>
+    <label for="sim-data">Guarda il sito come se fosse il
+      <input type="date" id="sim-data">
+    </label>
+    <button class="btn quieto piccolo" id="sim-reset" type="button">Torna a oggi</button>
+    <span id="sim-nota"></span>
+  </div>
+</div>
+
+<header class="testata">
+  <canvas id="neve" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <div class="top">
+      <a class="brand" href="#calendario">
+        <img src="/logo.png" alt="Albero di Our Elysion" width="52" height="52">
+        <span><span class="label">Our Elysion</span><b id="brand-anno">Avvento</b></span>
+      </a>
+      <nav class="menu" id="menu" aria-label="Sezioni"></nav>
+      <div class="utente" id="utente"></div>
+    </div>
+    <div class="hero">
+      <span class="label" id="sottotitolo"></span>
+      <h1 id="titolo">Calendario dell'Avvento</h1>
+      <p id="intro"></p>
+    </div>
+    <div class="contatore" id="contatore" hidden></div>
+  </div>
+</header>
+
+<main class="wrap" id="vista" tabindex="-1">
+  <p class="caricamento">Caricamento…</p>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Our Elysion · Community italiana di FFXIV</span>
+    <span id="footer-consegne"></span>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
