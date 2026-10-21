@@ -296,7 +296,7 @@ function vProfilo() {
 /* ---------- area staff ---------- */
 async function vStaff() {
   if (!admin()) return `<div class="pannello sigillata-box"><h2>Area riservata allo staff</h2></div>`;
-  const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["estrazioni", "Estrazioni"], ["consegne", "Consegne"], ["biscotti", "Biscotti per Mee6"], ["messaggi", "Messaggi per Tullio"], ["partecipanti", "Partecipanti"], ["testi", "Testi, date e regole"], ["edizioni", "Edizioni e backup"]];
+  const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["estrazioni", "Estrazioni"], ["consegne", "Consegne"], ["biscotti", "Biscotti per Mee6"], ["messaggi", "Messaggi per Tullio"], ["partecipanti", "Partecipanti"], ["annunci", "Annunci su Discord"], ["testi", "Testi, date e regole"], ["edizioni", "Edizioni e backup"]];
   const head = `<div class="staff"><nav class="staff-nav" aria-label="Sezioni staff">${nav.map(([k, t]) => `<button data-sez="${k}" aria-current="${S.staffSez === k}">${t}</button>`).join("")}
 </nav><section id="staff-corpo"><p class="caricamento">Caricamento…</p></section></div>`;
   return head;
@@ -313,6 +313,7 @@ async function riempiStaff() {
   if (S.staffSez === "messaggi") return riempiMessaggi();
   if (S.staffSez === "partecipanti") return riempiPartecipanti();
   if (S.staffSez === "edizioni") return riempiEdizioni();
+  if (S.staffSez === "annunci") return riempiAnnunci();
   try { S.adminGiorni = (await api("/api/admin/giorni")).giorni; }
   catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
   corpo.innerHTML = S.staffGiorno ? editorGiorno(S.adminGiorni.find((g) => g.n === S.staffGiorno)) : listaGiorni();
@@ -1253,6 +1254,39 @@ document.addEventListener("keydown", (e) => {
   if (!S.posta || S.posta.aperta < 0 || !$("#foglio-lettera")?.open) return;
   if (e.key === "ArrowLeft") apriLettera(S.posta.aperta - 1);
   if (e.key === "ArrowRight") apriLettera(S.posta.aperta + 1);
+});
+
+/* ---------- annunci su Discord ---------- */
+const NOME_ANNUNCIO = (k) => {
+  const [t, n] = k.split("-");
+  return { apertura: `Busta del giorno ${n} aperta`, vincitori: `Vincitori del giorno ${n}`, tappa: `Traguardo di ${n} lettere`, albero: "Albero delle lettere" }[t] || k;
+};
+async function riempiAnnunci() {
+  const corpo = $("#staff-corpo");
+  let a;
+  try { a = await api("/api/admin/annunci"); } catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
+  corpo.innerHTML = `<h2>Annunci su Discord</h2>
+  <p class="intro">Il sito scrive da solo nel canale del webhook: a mezzanotte i vincitori del giorno appena chiuso e la busta che si apre (titolo, categorie in palio, immagine), i traguardi di lettere appena raggiunti e, il giorno di Natale, l'albero di Tullio. I vincitori vengono menzionati, così ricevono la notifica.</p>
+  <div class="stats">
+    <div class="stat"><b>${a.configurato ? "Sì" : "No"}</b><span>Webhook impostato su Cloudflare</span></div>
+    <div class="stat"><b>${a.attivi ? "Accesi" : "Spenti"}</b><span>Annunci automatici</span></div>
+  </div>
+  ${a.configurato ? "" : `<p class="avviso">Manca il segreto <b>DISCORD_WEBHOOK_URL</b> nelle impostazioni del worker su Cloudflare.</p>`}
+  <div class="fila" style="margin-top:14px">
+    <button class="btn sec" data-act="annunci-prova" ${a.configurato ? "" : "disabled"}>Invia un messaggio di prova</button>
+    <button class="btn ${a.attivi ? "quieto pericolo-testo" : ""}" data-act="annunci-attivi" data-v="${a.attivi ? 0 : 1}" ${a.configurato ? "" : "disabled"}>${a.attivi ? "Spegni gli annunci" : "Accendi gli annunci"}</button>
+  </div>
+  <p class="aiuto" style="margin-top:8px">Il messaggio di prova parte anche con gli annunci spenti. Quando li accendete, tutto quello che è già successo viene saltato: il sito annuncia solo da quel momento in poi.</p>
+  <section class="pannello" style="margin-top:22px"><h3>Ultimi annunci inviati</h3>
+    ${a.inviati.length ? `<ul class="ass-lista" style="margin-top:8px">${a.inviati.map((x) => `<li><b>${esc(NOME_ANNUNCIO(x.chiave))}</b> · ${new Date(x.inviato_at).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</li>`).join("")}</ul>` : `<p class="sub">Ancora nessuno.</p>`}</section>`;
+}
+document.addEventListener("click", async (e) => {
+  const a = e.target.closest("[data-act^='annunci-']"); if (!a) return;
+  try {
+    if (a.dataset.act === "annunci-prova") { a.disabled = true; await api("/api/admin/annunci/prova", { method: "POST" }); toast("Messaggio di prova inviato: guarda il canale"); }
+    if (a.dataset.act === "annunci-attivi") { await putJson("/api/admin/annunci", { attivi: a.dataset.v === "1" }); toast(a.dataset.v === "1" ? "Annunci accesi" : "Annunci spenti"); }
+  } catch (err) { toast(err.message); }
+  riempiAnnunci();
 });
 
 /* ---------- partecipanti ---------- */

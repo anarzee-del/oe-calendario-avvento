@@ -1,6 +1,7 @@
 // Partecipazioni, estrazione equa di mezzanotte, albo e vincite.
 import { editionDays, romeNow } from "./time.js";
 import { assegnazioniPerGiorno, etichettaATesta, donatorePubblico } from "./donazioni.js";
+import { giroAnnunci } from "./annunci.js";
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
@@ -147,7 +148,10 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
       "INSERT OR IGNORE INTO partecipazioni(edition,giorno,user_id,risposta,created_at) VALUES(?,?,?,?,?)"
     ).bind(ed.year, n, user.id, risposta, Date.now()).run();
     if (!res.meta?.changes) return err(400, "Hai già partecipato a questa busta");
-    return json({ ok: true, lettere: await contaLettere(env, ed.year) });
+    const lettere = await contaLettere(env, ed.year);
+    // traguardo appena raggiunto: annuncio su Discord (una volta sola)
+    if (JSON.parse(ed.tappe || "[]").some((t) => t.s === lettere)) await giroAnnunci(env, ed, oggiRealeData).catch((e) => console.error(e));
+    return json({ ok: true, lettere });
   }
 
   // Albo dei vincitori

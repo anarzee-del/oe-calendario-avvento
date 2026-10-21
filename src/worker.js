@@ -5,6 +5,7 @@ import { romeNow, editionDays, dayState, weekday, isIsoDate } from "./time.js";
 import { handleDonazioni, assegnazioniPerGiorno, inPalio, isAiutante } from "./donazioni.js";
 import { handleGioco, estraiArretrati, giorniEstratti, contaLettere, premiEstratti } from "./gioco.js";
 import { handleExtra } from "./extra.js";
+import { handleAnnunci, giroAnnunci } from "./annunci.js";
 
 const JSONH = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: JSONH });
@@ -22,6 +23,9 @@ export default {
     const ed = await currentEdition(env);
     const res = await estraiArretrati(env, ed);
     if (res.length) console.log("Estrazioni eseguite", JSON.stringify(res));
+    // poi gli annunci su Discord (vincitori, busta del giorno, traguardi), se lo staff li ha accesi
+    const ann = await giroAnnunci(env, ed).catch((e) => { console.error(e); return []; });
+    if (ann.length) console.log("Annunci inviati", ann.join(", "));
   },
 
   async fetch(req, env, ctx) {
@@ -95,6 +99,8 @@ async function route(req, env, url, user, ed, ctx) {
 
   if (p === "/api/stato" && m === "GET") return stato(env, url, user, ed, ctx);
 
+  const an = await handleAnnunci(req, env, url, user, ed, oggiReale(url, env));
+  if (an) return an;
   const dr = await handleDonazioni(req, env, url, user, ed, today(url, user, env));
   if (dr) return dr;
   const gr = await handleGioco(req, env, url, user, ed, user?.role === "admin" ? oggiReale(url, env) : today(url, user, env), oggiReale(url, env));
@@ -249,7 +255,7 @@ async function stato(env, url, user, ed, ctx) {
   // Rete di sicurezza: se il cron di mezzanotte non fosse partito, l'estrazione parte alla prima visita
   if (reale > ed.inizio && ctx?.waitUntil) {
     const fatti = new Set(rEstr.results.map((r) => r.giorno));
-    if (editionDays(ed).some((d) => d.data < reale && !fatti.has(d.n))) ctx.waitUntil(estraiArretrati(env, ed, reale).catch((e) => console.error(e)));
+    if (editionDays(ed).some((d) => d.data < reale && !fatti.has(d.n))) ctx.waitUntil(estraiArretrati(env, ed, reale).then(() => giroAnnunci(env, ed, reale)).catch((e) => console.error(e)));
   }
   const miei = new Set((rMiei?.results || []).map((x) => x.giorno));
   const isAdmin = user?.role === "admin";
