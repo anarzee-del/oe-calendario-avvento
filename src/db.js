@@ -1,6 +1,6 @@
 // Schema del database e dati iniziali. Lo schema si crea da solo alla prima richiesta.
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 // Ogni versione contiene solo le modifiche rispetto alla precedente.
 const V1 = [
@@ -131,20 +131,30 @@ const V7 = [
 const V8 = [
   `UPDATE editions SET sottotitolo = '1°' || substr(sottotitolo, 2) WHERE sottotitolo LIKE '1 %'`,
 ];
-const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8 };
+// V9: offerte da approvare prima dello scambio; testi con la schwa
+const V9 = [
+  `UPDATE editions SET come_funziona = REPLACE(come_funziona, 'rispondi giusto e ottieni più biglietti', 'rispondi correttamente e ottieni più biglietti')`,
+  `UPDATE editions SET come_funziona = REPLACE(come_funziona, 'il sito estrae il vincitore', 'il sito estrae lə vincitorə')`,
+  `UPDATE editions SET come_funziona = REPLACE(come_funziona, 'tutti i partecipanti ricevono Biscotti extra', 'tuttə lə partecipanti ricevono Biscotti extra')`,
+  `UPDATE editions SET regolamento = REPLACE(regolamento, 'I membri del server Discord di Our Elysion, accedendo', 'Chi fa parte del server Discord di Our Elysion, accedendo')`,
+  `UPDATE editions SET aiutanti_intro = REPLACE(aiutanti_intro, 'Compila il modulo qui sotto, poi consegna il dono in gioco a uno degli admin, Altea Skysinger o Iname Naname (entrambi sul mondo Ragnarok, data center Chaos), entro la scadenza indicata. Quando lo riceviamo, la tua offerta risulterà "Ricevuta".', 'Compila il modulo qui sotto: lo staff valuterà la tua offerta. Se viene accettata, ti scriviamo su Discord per organizzare lo scambio in gioco con Altea Skysinger o Iname Naname (entrambi sul mondo Ragnarok, data center Chaos). Se questa volta non possiamo accoglierla, grazie lo stesso: sarà per la prossima!')`,
+  `UPDATE editions SET aiutanti_intro = REPLACE(aiutanti_intro, '"un aiutante anonimo"', '"unə aiutante anonimə"')`,
+  `UPDATE editions SET aiutanti_intro = REPLACE(aiutanti_intro, 'Sul tuo profilo comparirà il segno di Aiutante.', 'Accanto al tuo nome comparirà il francobollo dorato dell''Aiutante del postino.')`,
+];
+const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9 };
 
 const COME_FUNZIONA_2026 = `Ogni giorno alle 00:00 si apre una busta con un nuovo capitolo della storia.
 
-Nei giorni normali partecipi all'estrazione con un clic. Domeniche e feste hanno una sfida: rispondi giusto e ottieni più biglietti.
+Nei giorni normali partecipi all'estrazione con un clic. Domeniche e feste hanno una sfida: rispondi correttamente e ottieni più biglietti.
 
-A mezzanotte la busta si chiude e il sito estrae il vincitore. Chi non vince riceve comunque i Biscotti di Tullio.
+A mezzanotte la busta si chiude e il sito estrae lə vincitorə. Chi non vince riceve comunque i Biscotti di Tullio.
 
-Ogni partecipazione è una lettera ritrovata. Ai traguardi della community, tutti i partecipanti ricevono Biscotti extra.
+Ogni partecipazione è una lettera ritrovata. Ai traguardi della community, tuttə lə partecipanti ricevono Biscotti extra.
 
 I premi si consegnano in gioco dal 2 al 15 gennaio, su Light e Chaos.`;
 
 const REGOLAMENTO_2026 = `# Chi può partecipare
-I membri del server Discord di Our Elysion, accedendo con il proprio account. Un account per persona.
+Chi fa parte del server Discord di Our Elysion, accedendo con il proprio account. Un account per persona.
 
 # Orari
 Ogni busta si apre alle 00:01 e si chiude alle 23:59 dello stesso giorno, ora italiana. L'estrazione avviene in automatico alle 00:00.

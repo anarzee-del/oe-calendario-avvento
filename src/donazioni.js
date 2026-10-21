@@ -5,7 +5,7 @@ const json = (data, status = 200) =>
 const err = (status, messaggio) => json({ errore: messaggio }, status);
 const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 const intIn = (v, min, max) => { const n = Number(v); return Number.isInteger(n) && n >= min && n <= max ? n : null; };
-const STATI = new Set(["offerta", "ricevuta", "rifiutata"]);
+const STATI = new Set(["offerta", "accettata", "ricevuta", "rifiutata"]);
 const MAX_OFFERTE_UTENTE = 20;
 const STAFF = "lo staff di Our Elysion";
 const MAX_IMG = 600_000;
@@ -31,8 +31,8 @@ export function etichettaATesta(d, aTesta) {
 export function donatorePubblico(d) {
   if (!d) return null;
   let r;
-  if (d.anonimo) r = { anonimo: true, nome: "un aiutante anonimo" };
-  else if (d.user_id) r = { nome: d.u_nome || "un aiutante" };
+  if (d.anonimo) r = { anonimo: true, nome: "unə aiutante anonimə" };
+  else if (d.user_id) r = { nome: d.u_nome || "unə aiutante" };
   else r = { nome: d.donatore_nome || STAFF, staff: !d.donatore_nome };
   r.frase = r.staff ? "Offerto dallo staff di Our Elysion" : `Offerto da ${r.nome}`;
   return r;
@@ -125,7 +125,7 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
     await env.DB.prepare(
       `INSERT INTO donazioni(edition,user_id,tipo,categoria,descrizione,quantita,gil,anonimo,nota,stato,created_at,updated_at)
        VALUES(?,?,?,?,?,?,?,?,?,'offerta',?,?)`
-    ).bind(ed.year, user.id, v.tipo, v.categoria, v.descrizione, v.quantita, v.gil, b.anonimo ? 1 : 0, str(b.nota, 300), now, now).run();
+    ).bind(ed.year, user.id, v.tipo, v.categoria, v.descrizione, v.quantita, v.gil, b.anonimo ? 1 : 0, "", now, now).run();
     return json({ ok: true });
   }
 
@@ -135,7 +135,7 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
     const d = await env.DB.prepare("SELECT * FROM donazioni WHERE id=? AND user_id=?").bind(id, user.id).first();
     if (!d) return err(404, "Offerta non trovata");
     if (m === "DELETE") {
-      if (d.stato !== "offerta") return err(400, "Questo dono è già stato ricevuto: per toglierlo scrivi allo staff");
+      if (d.stato !== "offerta" && d.stato !== "accettata") return err(400, "Questo dono è già stato ricevuto: per toglierlo scrivi allo staff");
       await env.DB.prepare("DELETE FROM donazioni WHERE id=?").bind(id).run();
       return json({ ok: true });
     }

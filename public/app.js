@@ -93,7 +93,7 @@ function renderTesta() {
     c.hidden = false;
     c.innerHTML = `<div class="riga"><span>Lettere ritrovate dalla community</span><b class="num">${d.lettere.toLocaleString("it-IT")} / ${max.toLocaleString("it-IT")}</b></div>
       <div class="barra" role="progressbar" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${d.lettere}" aria-label="Lettere ritrovate"><i style="width:${pct}%"></i>${tappe.slice(0, -1).map((t) => `<span class="tacca" style="left:${(t.s / max) * 100}%"></span>`).join("")}</div>
-      <div class="tappe" style="grid-template-columns:repeat(${tappe.length},minmax(0,1fr))">${tappe.map((t, i) => `<div class="tappa ${d.lettere >= t.s ? "ok" : ""}"><b>${t.s} lettere</b><span>+${t.b} Biscotti ai partecipanti${i === tappe.length - 1 ? " e capitolo bonus" : ""}</span></div>`).join("")}</div>`;
+      <div class="tappe" style="grid-template-columns:repeat(${tappe.length},minmax(0,1fr))">${tappe.map((t, i) => `<div class="tappa ${d.lettere >= t.s ? "ok" : ""}"><b>${t.s} lettere</b><span>+${t.b} Biscotti allə partecipanti${i === tappe.length - 1 ? " e capitolo bonus" : ""}</span></div>`).join("")}</div>`;
   }
 
   // barra anteprima staff
@@ -156,7 +156,7 @@ function vCalendario() {
   if (d.chiuso) return vAttesa();
   let avviso = "";
   if (d.prima) avviso = `<div class="avviso"><span class="stato">Anteprima</span><p><b>Il calendario non è ancora aperto.</b> Lo vedete solo voi dello staff; i giocatori vedono la pagina d'attesa fino al ${dataLunga(d.edizione.inizio)}.</p></div>`;
-  else if (d.dopo) avviso = `<div class="avviso"><span class="stato ok">Concluso</span><p><b>Grazie a tutti!</b> Il calendario è chiuso. Le consegne in gioco sono aperte fino al ${dataLunga(d.edizione.consegna_a)}.</p></div>`;
+  else if (d.dopo) avviso = `<div class="avviso"><span class="stato ok">Concluso</span><p><b>Grazie a tuttə!</b> Il calendario è chiuso. Le consegne in gioco sono aperte fino al ${dataLunga(d.edizione.consegna_a)}.</p></div>`;
   else if (!connesso()) avviso = `<div class="avviso"><span class="stato acc">Oggi</span><p><b>La busta del ${dataLunga(d.oggi)} è aperta.</b> Per partecipare accedi con il tuo account Discord del server Our Elysion.</p></div>`;
   const mese = new Date(d.edizione.inizio + "T12:00:00Z").toLocaleDateString("it-IT", { month: "long", year: "numeric", timeZone: "UTC" });
   return `${avviso}
@@ -259,9 +259,9 @@ function cardPremio(p) {
   const io = u && p.vincitori.some((v) => v.id === u.id);
   return `<div class="premio-card${io ? " mio" : ""}">
     ${p.immagine ? `<img src="${esc(p.immagine)}" alt="" loading="lazy">` : ""}
-    <div class="pc-t"><span class="label">${esc(p.categoria)}${p.posti > 1 ? ` · ${p.posti} vincitori` : ""}</span><b>${esc(p.etichetta)}</b>
+    <div class="pc-t"><span class="label">${esc(p.categoria)}${p.posti > 1 ? ` · ${p.posti} vincitorə` : ""}</span><b>${esc(p.etichetta)}</b>
       ${p.dettagli ? `<p>${esc(p.dettagli)}</p>` : ""}<span class="aiuto">${esc(p.offerto)}</span>
-      <ul class="vincitori">${p.vincitori.length ? p.vincitori.map((v) => `<li${u && v.id === u.id ? ' class="io"' : ""}>${esc(v.nome)}${v.aiutante ? SEGNO() : ""}</li>`).join("") : `<li class="nessuno">Nessun vincitore</li>`}</ul>
+      <ul class="vincitori">${p.vincitori.length ? p.vincitori.map((v) => `<li${u && v.id === u.id ? ' class="io"' : ""}>${esc(v.nome)}${v.aiutante ? SEGNO() : ""}</li>`).join("") : `<li class="nessuno">Nessunə vincitorə</li>`}</ul>
     </div></div>`;
 }
 
@@ -622,7 +622,10 @@ disegna(false);
 if (!matchMedia("(prefers-reduced-motion: reduce)").matches) (function loop() { disegna(true); requestAnimationFrame(loop); })();
 
 /* ---------- aiutanti del postino ---------- */
-const STATO_DONO = { offerta: ["warn", "Da consegnare"], ricevuta: ["ok", "Ricevuta"], rifiutata: ["err", "Non accettata"] };
+// come vede lo stato chi ha offerto
+const STATO_DONO = { offerta: ["warn", "In attesa di valutazione"], accettata: ["acc", "Accettata"], ricevuta: ["ok", "Ricevuta"], rifiutata: ["", "Non accolta"] };
+// come lo vede lo staff
+const STATO_DONO_STAFF = { offerta: ["warn", "Da valutare"], accettata: ["acc", "Accettata, da ricevere"], ricevuta: ["ok", "Ricevuta"], rifiutata: ["err", "Non accolta"] };
 const dataOra = (ms) => primo(new Date(ms).toLocaleDateString("it-IT", { day: "numeric", month: "short" }));
 
 function campiDono(pref) {
@@ -630,7 +633,7 @@ function campiDono(pref) {
   return `<div class="campo"><label for="${pref}-cat">Categoria</label><select id="${pref}-cat" data-cat="${pref}"><option value="">Scegli…</option>${cat.map((c) => `<option>${c}</option>`).join("")}</select></div>
     <div class="due" id="${pref}-ogg">
       <div class="campo"><label for="${pref}-desc">Nome dell'oggetto</label><input type="text" id="${pref}-desc" maxlength="100" placeholder="Es. Fat Black Chocobo"></div>
-      <div class="campo"><label for="${pref}-qta">Quantità</label><input type="number" id="${pref}-qta" min="1" max="999" value="1"><span class="aiuto">Quante copie: ognuna può andare a un vincitore diverso.</span></div>
+      <div class="campo"><label for="${pref}-qta">Quantità</label><input type="number" id="${pref}-qta" min="1" max="999" value="1"><span class="aiuto">Quante copie: ognuna può andare a unə vincitorə diversə.</span></div>
     </div>
     <div class="campo" id="${pref}-gil" hidden><label for="${pref}-gilv">Quanti GIL in tutto</label><input type="number" id="${pref}-gilv" min="1" step="1" placeholder="Es. 5000000"><span class="aiuto">Lo staff potrà dividerli tra più vincitori.</span></div>`;
 }
@@ -647,26 +650,26 @@ async function vAiutanti() {
   S.categorie = a.categorie;
   const u = S.dati.utente;
   let modulo;
-  if (!a.aperte) modulo = `<section class="pannello"><h3>Offerte chiuse</h3><p class="sub">Le offerte per questa edizione si sono chiuse il ${dataLunga(a.fino)}. Grazie a tutti gli aiutanti!</p></section>`;
+  if (!a.aperte) modulo = `<section class="pannello"><h3>Offerte chiuse</h3><p class="sub">Le offerte per questa edizione si sono chiuse il ${dataLunga(a.fino)}. Grazie a tuttə lə aiutanti!</p></section>`;
   else if (!u) modulo = `<section class="pannello"><h3>Offri un premio</h3><p class="sub">Accedi con il tuo account Discord del server Our Elysion per registrare la tua offerta.</p><a class="btn-discord" href="/api/auth/login">Entra con Discord</a></section>`;
-  else modulo = `<section class="pannello"><h3>Offri un premio</h3><p class="sub">Puoi registrare più offerte. Scadenza: ${dataLunga(a.fino)}.</p>
+  else modulo = `${S.donoInviato ? `<div class="avviso vinto" role="status"><span class="stato ok">Inviata</span><p><b>Grazie, la tua offerta è arrivata!</b> Rimani in attesa: lo staff di Our Elysion la valuterà a breve. Se viene accettata, ti scriviamo su Discord per organizzare lo scambio in gioco. Se questa volta non possiamo accoglierla, grazie lo stesso: sarà per la prossima!</p></div>` : ""}
+  <section class="pannello"><h3>Offri un premio</h3><p class="sub">Cerchiamo premi che facciano davvero piacere a chi li vince: una mount, un minion, un bel pezzo di glamour, oppure GIL in quantità significativa. Non serve svuotare l'inventario: meglio un dono speciale che tanti piccoli. Puoi registrare più offerte fino al ${dataLunga(a.fino)}.</p>
     <form id="form-dono">${campiDono("d")}
       <fieldset style="border:0;padding:0;margin:0 0 14px"><legend class="label" style="margin-bottom:8px">Sotto il premio, a dicembre</legend>
         <label class="scelta" for="d-nome"><input type="radio" name="d-anon" id="d-nome" value="0" checked> Mostra il mio nome: <b>${esc(u.nome)}</b></label>
-        <label class="scelta" for="d-anon"><input type="radio" name="d-anon" id="d-anon" value="1"> Resta anonimo</label>
+        <label class="scelta" for="d-anon"><input type="radio" name="d-anon" id="d-anon" value="1"> Resta anonimə</label>
         <span class="aiuto">Lo staff vede comunque chi ha donato cosa.</span></fieldset>
-      <div class="campo"><label for="d-nota">Nota per lo staff (facoltativa)</label><input type="text" id="d-nota" maxlength="300" placeholder="Es. quando sei online per la consegna"></div>
       <button class="btn" type="submit">Registra l'offerta</button>
     </form></section>`;
   const mie = u && a.mie.length ? `<section class="pannello"><h3>Le tue offerte</h3><div class="doni">${a.mie.map((d) => {
     const [c, t] = STATO_DONO[d.stato];
-    return `<div class="dono"><div class="dono-t"><b>${esc(d.etichetta)}</b><span class="fila">${pill(c, t)}${d.anonimo ? pill("", "Anonimo") : ""}</span></div>
-      <div class="fila"><button class="btn quieto piccolo" data-act="mio-anon" data-id="${d.id}" data-v="${d.anonimo ? 0 : 1}">${d.anonimo ? "Mostra il mio nome" : "Rendi anonimo"}</button>
-      ${d.stato === "offerta" ? `<button class="btn quieto piccolo" data-act="mio-ritira" data-id="${d.id}">Ritira</button>` : ""}</div></div>`;
+    return `<div class="dono"><div class="dono-t"><b>${esc(d.etichetta)}</b><span class="fila">${pill(c, t)}${d.anonimo ? pill("", "Anonimə") : ""}</span></div>
+      <div class="fila"><button class="btn quieto piccolo" data-act="mio-anon" data-id="${d.id}" data-v="${d.anonimo ? 0 : 1}">${d.anonimo ? "Mostra il mio nome" : "Nascondi il mio nome"}</button>
+      ${d.stato === "offerta" || d.stato === "accettata" ? `<button class="btn quieto piccolo" data-act="mio-ritira" data-id="${d.id}">Ritira</button>` : ""}</div></div>`;
   }).join("")}</div>
-    ${a.mie.some((d) => d.stato === "offerta") ? `<p class="aiuto" style="margin-top:10px">"Da consegnare": consegna il dono in gioco a uno degli admin. Quando lo riceviamo diventa "Ricevuta".</p>` : ""}</section>` : "";
-  const grazie = `<section class="pannello"><h3>Grazie a</h3>${a.aiutanti.length || a.anonimi ? `<ul class="grazie">${a.aiutanti.map((n) => `<li>${SEGNO()}${esc(n)}</li>`).join("")}</ul>${a.anonimi ? `<p class="aiuto" style="margin-top:8px">e ${a.anonimi === 1 ? "un aiutante anonimo" : a.anonimi + " aiutanti anonimi"}</p>` : ""}` : `<p class="sub">Ancora nessun dono ricevuto. Il primo nome potrebbe essere il tuo!</p>`}</section>`;
-  v.innerHTML = `<div class="pagina-h"><span class="label">Edizione ${S.dati.edizione.anno}</span><h2>Gli aiutanti del postino</h2>
+    ${a.mie.some((d) => d.stato === "offerta" || d.stato === "accettata") ? `<p class="aiuto" style="margin-top:10px">"In attesa di valutazione": lo staff deve ancora guardarla. "Accettata": ti scriviamo su Discord per lo scambio in gioco; quando riceviamo il dono diventa "Ricevuta".</p>` : ""}</section>` : "";
+  const grazie = `<section class="pannello"><h3>Grazie a</h3>${a.aiutanti.length || a.anonimi ? `<ul class="grazie">${a.aiutanti.map((n) => `<li>${SEGNO()}${esc(n)}</li>`).join("")}</ul>${a.anonimi ? `<p class="aiuto" style="margin-top:8px">e ${a.anonimi === 1 ? "unə aiutante anonimə" : a.anonimi + " aiutanti anonimə"}</p>` : ""}` : `<p class="sub">Ancora nessun dono ricevuto. Il primo nome potrebbe essere il tuo!</p>`}</section>`;
+  v.innerHTML = `<div class="pagina-h"><span class="label">Edizione ${S.dati.edizione.anno}</span><h2>Lə aiutanti del postino</h2>
     ${paragrafi(a.intro).map((p) => `<p>${esc(p)}</p>`).join("")}</div>
     <div class="sotto" style="margin-top:0"><div style="display:grid;gap:24px">${modulo}${mie}</div>${grazie}</div>`;
 }
@@ -682,10 +685,11 @@ async function riempiPremi() {
   const conPremio = new Set(a.donazioni.flatMap((d) => d.assegnazioni.map((x) => x.giorno)));
   const posti = a.donazioni.reduce((s, d) => s + d.assegnazioni.reduce((t, x) => t + x.vincitori, 0), 0);
   const lista = a.donazioni.filter((d) => f === "tutte" || d.stato === f || (f === "libere" && d.stato === "ricevuta" && d.usati < d.totale));
-  const filtri = [["tutte", "Tutte", a.donazioni.length], ["offerta", "Da ricevere", conta("offerta")], ["libere", "Ricevute da assegnare", a.donazioni.filter((d) => d.stato === "ricevuta" && d.usati < d.totale).length], ["rifiutata", "Non accettate", conta("rifiutata")]];
+  const filtri = [["tutte", "Tutte", a.donazioni.length], ["offerta", "Da valutare", conta("offerta")], ["accettata", "Accettate, da ricevere", conta("accettata")], ["libere", "Ricevute da assegnare", a.donazioni.filter((d) => d.stato === "ricevuta" && d.usati < d.totale).length], ["rifiutata", "Non accolte", conta("rifiutata")]];
   corpo.innerHTML = `<h2>Premi e aiutanti</h2><p class="intro">Le offerte della community e i premi dello staff. Offerte aperte fino al ${dataLunga(a.fino)}${a.aperte ? "" : " (chiuse)"}.</p>
   <div class="stats">
-    <div class="stat"><b>${conta("offerta")}</b><span>Da ricevere in gioco</span></div>
+    <div class="stat"><b>${conta("offerta")}</b><span>Da valutare</span></div>
+    <div class="stat"><b>${conta("accettata")}</b><span>Accettate, da ricevere in gioco</span></div>
     <div class="stat"><b>${conta("ricevuta")}</b><span>Ricevute</span></div>
     <div class="stat"><b>${conPremio.size}/${giorni.length}</b><span>Giorni con premi</span></div>
     <div class="stat"><b>${posti}</b><span>Vincitori previsti in tutto</span></div>
@@ -702,7 +706,7 @@ async function riempiPremi() {
 }
 
 function cardDono(d, giorni) {
-  const [c, t] = STATO_DONO[d.stato];
+  const [c, t] = STATO_DONO_STAFF[d.stato];
   const chi = d.user_id ? `${esc(d.u_nome || "?")} <span class="aiuto">@${esc(d.u_username || "")}${d.u_pg ? " · " + esc(d.u_pg) + (d.u_mondo ? " (" + esc(d.u_mondo) + ")" : "") : ""}</span>` : esc(d.donatore_nome || "Staff di Our Elysion");
   const gil = d.tipo === "gil";
   const resto = d.totale - d.usati;
@@ -733,8 +737,9 @@ function cardDono(d, giorni) {
         <button class="btn piccolo" type="submit">Assegna</button>
       </form><p class="aiuto">Da assegnare: ${fmt(resto)}.</p>` : `<p class="aiuto">Tutto assegnato.</p>`}
     </div>` : ""}
-    <div class="fila">${d.stato === "offerta" ? `<button class="btn piccolo" data-act="dono-stato" data-id="${d.id}" data-s="ricevuta">Ricevuto</button><button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="rifiutata">Non accettare</button>` : ""}
-      ${ric && !d.assegnazioni.length ? `<button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="offerta">Annulla "ricevuto"</button>` : ""}
+    <div class="fila">${d.stato === "offerta" ? `<button class="btn piccolo" data-act="dono-stato" data-id="${d.id}" data-s="accettata">Accetta</button><button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="rifiutata">Non accogliere</button>` : ""}
+      ${d.stato === "accettata" ? `<button class="btn piccolo" data-act="dono-stato" data-id="${d.id}" data-s="ricevuta">Ricevuto in gioco</button><button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="offerta">Torna da valutare</button><button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="rifiutata">Non accogliere</button>` : ""}
+      ${ric && !d.assegnazioni.length ? `<button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="accettata">Annulla "ricevuto"</button>` : ""}
       ${d.stato === "rifiutata" ? `<button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="offerta">Riapri</button>` : ""}
       <button class="btn quieto piccolo" data-act="dono-anon" data-id="${d.id}" data-v="${d.anonimo ? 0 : 1}">${d.anonimo ? "Mostra il nome" : "Rendi anonimo"}</button>
       <button class="btn quieto piccolo pericolo-testo" data-act="dono-elimina" data-id="${d.id}">Elimina</button></div>
@@ -802,8 +807,8 @@ document.addEventListener("submit", async (e) => {
   const f = e.target;
   if (f.id === "form-dono") {
     e.preventDefault();
-    const body = { ...leggiDono("d"), anonimo: document.querySelector("input[name=d-anon]:checked")?.value === "1", nota: $("#d-nota").value };
-    try { await api("/api/donazioni", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); toast("Offerta registrata. Grazie!"); vAiutanti(); }
+    const body = { ...leggiDono("d"), anonimo: document.querySelector("input[name=d-anon]:checked")?.value === "1", };
+    try { await api("/api/donazioni", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); S.donoInviato = true; vAiutanti(); }
     catch (err) { toast(err.message); }
   }
   if (f.id === "form-dono-staff") {
@@ -822,12 +827,12 @@ async function vAlbo() {
   try { a = await api("/api/albo" + (S.alboAnno ? `?anno=${S.alboAnno}` : "")); } catch (e) { v.innerHTML = `<div class="avviso"><p>${esc(e.message)}</p></div>`; return; }
   if (S.vista !== "albo") return;
   const corrente = a.anno === S.dati.edizione.anno;
-  v.innerHTML = `<div class="pagina-h"><span class="label">Edizione ${a.anno}</span><h2>Albo dei vincitori</h2>
-    <p>Ogni notte a mezzanotte il sito estrae i vincitori del giorno, dando la precedenza a chi ha vinto meno premi finora.</p>
+  v.innerHTML = `<div class="pagina-h"><span class="label">Edizione ${a.anno}</span><h2>Albo dellə vincitorə</h2>
+    <p>Ogni notte a mezzanotte il sito estrae lə vincitorə del giorno, dando la precedenza a chi ha vinto meno premi finora.</p>
     ${a.anni.length > 1 ? `<div class="fila filtri" role="group" aria-label="Edizione">${a.anni.map((y) => `<button class="btn ${y === a.anno ? "" : "sec"} piccolo" data-act="albo-anno" data-anno="${y}">${y}</button>`).join("")}</div>` : ""}</div>
   ${a.giorni.length ? `<div class="albo">${a.giorni.slice().reverse().map((g) => `<section class="albo-giorno"><h3>${corrente ? `<a href="#casella-${g.n}">Giorno ${g.n}</a>` : `Giorno ${g.n}`} <span class="aiuto">${g.data ? dataLunga(g.data) : ""}</span></h3>
       <div class="premi">${g.premi.map(cardPremio).join("") || `<p class="sub">Nessun premio.</p>`}</div></section>`).join("")}</div>`
-    : `<div class="pannello"><p>${corrente ? `Ancora nessuna estrazione. I primi vincitori compariranno qui alla mezzanotte tra il ${dataLunga(S.dati.edizione.inizio).replace(/ .*/, "")} e il ${dataLunga(new Date(Date.parse(S.dati.edizione.inizio + "T12:00:00Z") + 86400000).toISOString().slice(0, 10))}, dopo la prima busta, e poi ogni notte fino all'ultima busta.` : "Nessuna estrazione in questa edizione."}</p></div>`}`;
+    : `<div class="pannello"><p>${corrente ? `Ancora nessuna estrazione. Lə primə vincitorə compariranno qui alla mezzanotte tra il ${dataLunga(S.dati.edizione.inizio).replace(/ .*/, "")} e il ${dataLunga(new Date(Date.parse(S.dati.edizione.inizio + "T12:00:00Z") + 86400000).toISOString().slice(0, 10))}, dopo la prima busta, e poi ogni notte fino all'ultima busta.` : "Nessuna estrazione in questa edizione."}</p></div>`}`;
 }
 
 async function mioDicembre() {
@@ -1053,7 +1058,7 @@ async function boxMessaggi() {
     const st = a.mio ? { attesa: ["warn", "In attesa di approvazione"], ok: ["ok", "Approvato"], no: ["err", "Non approvato: puoi modificarlo"] }[a.mio.stato] : null;
     h += `<form id="form-msg">
       <div class="campo"><label for="msg-tullio">Il tuo messaggio</label>
-        <textarea id="msg-tullio" maxlength="500" placeholder="Caro Tullio, porta questo messaggio a tutti…">${esc(a.mio?.testo || "")}</textarea>
+        <textarea id="msg-tullio" maxlength="500" placeholder="Caro Tullio, porta questo messaggio a tuttə…">${esc(a.mio?.testo || "")}</textarea>
         <span class="aiuto" id="msg-cont">${(a.mio?.testo || "").length} / 500 caratteri · modificabile fino al ${dataLunga(a.fino)}</span></div>
       <div class="fila"><button class="btn" type="submit">${a.mio ? "Aggiorna il messaggio" : "Affida il messaggio a Tullio"}</button>${st ? pill(st[0], st[1]) : ""}
       ${a.mio ? `<button type="button" class="btn quieto piccolo" data-act="msg-elimina">Ritira</button>` : ""}</div></form>`;
