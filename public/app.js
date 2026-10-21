@@ -285,7 +285,8 @@ function vProfilo() {
       <button class="btn" type="submit">Salva</button>
     </form></section>
   <section id="mio-dicembre" style="margin-top:24px"></section>
-  <p style="margin-top:18px"><a href="#aiutanti">${u.aiutante ? "Le tue offerte per il calendario" : "Vuoi offrire un premio? Diventa un aiutante"}</a></p>`;
+  ${u.aiutante ? `<p style="margin-top:18px"><a href="#aiutanti">Le tue offerte per il calendario</a></p>`
+    : S.dati.oggi <= (S.dati.edizione.donazioni_fino || "") ? `<p style="margin-top:18px"><a href="#aiutanti">Vuoi offrire un premio? Diventa un aiutante</a></p>` : ""}`;
 }
 
 /* ---------- area staff ---------- */
