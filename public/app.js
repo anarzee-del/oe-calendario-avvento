@@ -289,9 +289,9 @@ function vProfilo() {
 /* ---------- area staff ---------- */
 async function vStaff() {
   if (!admin()) return `<div class="pannello sigillata-box"><h2>Area riservata allo staff</h2></div>`;
-  const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["estrazioni", "Estrazioni"], ["testi", "Testi, date e regole"]];
+  const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["estrazioni", "Estrazioni"], ["biscotti", "Biscotti per Mee6"], ["testi", "Testi, date e regole"]];
   const head = `<div class="staff"><nav class="staff-nav" aria-label="Sezioni staff">${nav.map(([k, t]) => `<button data-sez="${k}" aria-current="${S.staffSez === k}">${t}</button>`).join("")}
-    <p class="aiuto" style="padding:10px 12px">Partecipanti, messaggi per Tullio, consegne e Biscotti arrivano nei prossimi aggiornamenti.</p></nav><section id="staff-corpo"><p class="caricamento">Caricamento…</p></section></div>`;
+    <p class="aiuto" style="padding:10px 12px">Partecipanti, messaggi per Tullio e consegne arrivano nei prossimi aggiornamenti.</p></nav><section id="staff-corpo"><p class="caricamento">Caricamento…</p></section></div>`;
   return head;
 }
 
@@ -301,6 +301,7 @@ async function riempiStaff() {
   if (S.staffSez === "testi") { corpo.innerHTML = formTesti(); return; }
   if (S.staffSez === "premi") return riempiPremi();
   if (S.staffSez === "estrazioni") return riempiEstrazioni();
+  if (S.staffSez === "biscotti") return riempiBiscotti();
   try { S.adminGiorni = (await api("/api/admin/giorni")).giorni; }
   catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
   corpo.innerHTML = S.staffGiorno ? editorGiorno(S.adminGiorni.find((g) => g.n === S.staffGiorno)) : listaGiorni();
@@ -868,4 +869,40 @@ document.addEventListener("submit", async (e) => {
     try { await api(`/api/admin/donazione/${id}/assegna`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); toast(`Assegnato al giorno ${body.giorno}`); riempiPremi(); }
     catch (err) { toast(err.message); }
   }
+});
+
+/* ---------- Biscotti per Mee6 ---------- */
+async function riempiBiscotti() {
+  const corpo = $("#staff-corpo");
+  let a;
+  try { a = await api("/api/admin/estrazioni/biscotti"); } catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
+  S.biscotti = a;
+  const tot = a.lista.reduce((s, x) => s + x.totale, 0), fatti = a.lista.filter((x) => x.fatto).length;
+  corpo.innerHTML = `<h2>Biscotti per Mee6</h2>
+  <p class="intro">Quanti Biscotti di Tullio accreditare a ciascuno: ${a.per_partecipazione} per ogni giorno giocato senza vincere${a.bonus ? `, più ${a.bonus} dai traguardi raggiunti (${a.lettere} lettere)` : ""}. Spunta chi hai già sistemato su Discord.</p>
+  <div class="stats">
+    <div class="stat"><b>${a.lista.length}</b><span>Persone</span></div>
+    <div class="stat"><b>${tot.toLocaleString("it-IT")}</b><span>Biscotti in tutto</span></div>
+    <div class="stat"><b>${fatti}/${a.lista.length}</b><span>Già accreditati</span></div>
+  </div>
+  ${a.lista.length ? `<div class="fila" style="margin-bottom:12px"><button class="btn sec piccolo" data-act="copia-biscotti">Copia la lista</button></div>
+  <ul class="lista-biscotti">${a.lista.map((x) => `<li class="${x.fatto ? "fatto" : ""}">
+    <label for="bf-${x.id}"><input type="checkbox" id="bf-${x.id}" data-biscotti="${x.id}" ${x.fatto ? "checked" : ""}>
+      <span class="lb-nome"><b>${esc(x.nome)}</b> <span class="aiuto">@${esc(x.username)}</span></span></label>
+    <span class="lb-tot num">${x.totale.toLocaleString("it-IT")}</span></li>`).join("")}</ul>`
+  : `<p class="prossimamente">Ancora nessuna partecipazione.</p>`}`;
+}
+
+document.addEventListener("change", async (e) => {
+  const id = e.target.dataset?.biscotti;
+  if (!id) return;
+  try { await putJson(`/api/admin/estrazioni/biscotti/${id}`, { fatto: e.target.checked }); e.target.closest("li").classList.toggle("fatto", e.target.checked); }
+  catch (err) { toast(err.message); e.target.checked = !e.target.checked; }
+});
+
+document.addEventListener("click", async (e) => {
+  if (!e.target.closest('[data-act="copia-biscotti"]')) return;
+  const testo = S.biscotti.lista.map((x) => `${x.nome} (@${x.username}): ${x.totale}`).join("\n");
+  try { await navigator.clipboard.writeText(testo); toast("Lista copiata"); }
+  catch { toast("Non riesco a copiare: seleziona la lista a mano"); }
 });

@@ -1,6 +1,6 @@
 // Schema del database e dati iniziali. Lo schema si crea da solo alla prima richiesta.
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 // Ogni versione contiene solo le modifiche rispetto alla precedente.
 const V1 = [
@@ -60,7 +60,7 @@ const V2 = [
   `UPDATE editions SET donazioni_fino = printf('%d-11-30', year) WHERE donazioni_fino IS NULL`,
   `UPDATE editions SET aiutanti_intro = 'Vuoi aiutare il postino a riempire la sua sacca? Offri un premio per il calendario: un oggetto in gioco oppure dei GIL.
 
-Compila il modulo qui sotto, poi consegna il dono in gioco a uno degli admin (Altea Skysinger o Ignus) entro la scadenza indicata. Quando lo riceviamo, la tua offerta risulterà "Ricevuta".
+Compila il modulo qui sotto, poi consegna il dono in gioco a uno degli admin (Altea Skysinger o Iname Naname) entro la scadenza indicata. Quando lo riceviamo, la tua offerta risulterà "Ricevuta".
 
 A dicembre, sotto il premio del giorno, comparirà il tuo nome, oppure "un aiutante anonimo" se preferisci. Sul tuo profilo comparirà il segno di Aiutante. È Natale: il grazie è tutto per te.' WHERE aiutanti_intro IS NULL`,
 ];
@@ -102,7 +102,13 @@ const V3 = [
   `UPDATE editions SET donazioni_fino='2026-11-27' WHERE year=2026 AND donazioni_fino='2026-11-30'`,
 ];
 
-const MIGRATIONS = { 1: V1, 2: V2, 3: V3 };
+// v4: Biscotti già accreditati su Mee6; nome in gioco di Ignus nel testo Aiutanti
+const V4 = [
+  `CREATE TABLE IF NOT EXISTS biscotti_fatti (edition INTEGER NOT NULL, user_id TEXT NOT NULL, fatto_at INTEGER, fatto_da TEXT, PRIMARY KEY (edition, user_id))`,
+  `UPDATE editions SET aiutanti_intro = REPLACE(aiutanti_intro, 'Altea Skysinger o Ignus', 'Altea Skysinger o Iname Naname')`,
+];
+
+const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4 };
 
 const COME_FUNZIONA_2026 = `Ogni giorno alle 00:00 si apre una busta con un nuovo capitolo della storia.
 

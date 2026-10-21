@@ -204,6 +204,32 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
     return json({ oggi: oggiReale, tetto: ed.tetto, giorni: out, classifica });
   }
 
+  // Biscotti di Tullio da accreditare a mano su Mee6
+  if (p === "/api/admin/estrazioni/biscotti" && m === "GET") {
+    const tappe = JSON.parse(ed.tappe || "[]");
+    const lettere = await contaLettere(env, ed.year);
+    const bonus = tappe.filter((t) => lettere >= t.s).reduce((s, t) => s + (t.b || 0), 0);
+    const { results } = await env.DB.prepare(
+      `SELECT u.id, COALESCE(u.global_name, u.username) AS nome, u.username,
+         COUNT(p.giorno) AS partecipazioni,
+         (SELECT COUNT(DISTINCT v.giorno) FROM vincite v WHERE v.edition=p.edition AND v.user_id=u.id) AS giorni_vinti,
+         (SELECT fatto_at FROM biscotti_fatti b WHERE b.edition=p.edition AND b.user_id=u.id) AS fatto_at
+       FROM partecipazioni p JOIN users u ON u.id = p.user_id
+       WHERE p.edition=? GROUP BY u.id ORDER BY nome COLLATE NOCASE`
+    ).bind(ed.year).all();
+    const lista = results.map((x) => {
+      const consolazione = Math.max(0, x.partecipazioni - x.giorni_vinti) * (ed.biscotti_partecipazione || 0);
+      return { ...x, consolazione, bonus, totale: consolazione + bonus, fatto: !!x.fatto_at };
+    });
+    return json({ lettere, bonus, per_partecipazione: ed.biscotti_partecipazione, lista });
+  }
+  if ((r = p.match(/^\/api\/admin\/estrazioni\/biscotti\/(\d+)$/)) && m === "PUT") {
+    const b = await req.json().catch(() => null);
+    if (b?.fatto) await env.DB.prepare("INSERT OR REPLACE INTO biscotti_fatti(edition,user_id,fatto_at,fatto_da) VALUES(?,?,?,?)").bind(ed.year, r[1], Date.now(), chi).run();
+    else await env.DB.prepare("DELETE FROM biscotti_fatti WHERE edition=? AND user_id=?").bind(ed.year, r[1]).run();
+    return json({ ok: true });
+  }
+
   if ((r = p.match(/^\/api\/admin\/estrazione\/(\d{1,2})(\/ripeti)?$/)) && m === "POST") {
     const n = Number(r[1]);
     const d = editionDays(ed)[n - 1];
