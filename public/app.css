@@ -118,3 +118,13 @@ details.pannello summary{cursor:pointer;display:flex;gap:8px;flex-wrap:wrap;alig
 .lb-tot{font-family:var(--f-display);font-weight:800;font-size:26px}
 .lista-biscotti li.fatto{opacity:.55}
 .lista-biscotti li.fatto .lb-nome b{text-decoration:line-through}
+.gruppo-consegne{margin-top:22px}
+.gruppo-consegne h3{font-size:26px;margin-bottom:10px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.consegna-lista{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.consegna-lista li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;border-top:1px dashed var(--line);padding-top:8px}
+.consegna-lista label{display:flex;gap:10px;align-items:flex-start;cursor:pointer;min-width:0;font-family:var(--f-label);font-size:15px}
+.consegna-lista label > span{min-width:0;overflow-wrap:anywhere}
+.consegna-lista input[type=checkbox]{width:22px;height:22px;accent-color:var(--ok);flex:none;margin-top:1px}
+.consegna-lista li.fatto b{text-decoration:line-through;opacity:.6}
+.consegna-lista li.chiuso b{opacity:.6}
+.nota-consegna{grid-column:1/-1;padding:6px 10px!important;font-size:14px!important}

@@ -169,7 +169,7 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
       biscotti_partecipazione: ed.biscotti_partecipazione,
       vincite: vinc.map((v) => ({
         giorno: v.giorno, etichetta: etichettaATesta(v, v.a_testa), categoria: v.categoria || (v.tipo === "gil" ? "GIL" : "Premio"),
-        immagine: v.img_ver ? `/api/img/premio/${v.did}?v=${v.img_ver}` : null, consegnato: !!v.consegnato,
+        immagine: v.img_ver ? `/api/img/premio/${v.did}?v=${v.img_ver}` : null, consegnato: v.consegnato === 1, non_ritirato: v.consegnato === 2,
       })),
     });
   }
@@ -202,6 +202,32 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
        FROM vincite v JOIN users u ON u.id = v.user_id WHERE v.edition=? GROUP BY u.id ORDER BY vinti DESC, nome`
     ).bind(ed.year).all();
     return json({ oggi: oggiReale, tetto: ed.tetto, giorni: out, classifica });
+  }
+
+  // Consegne di gennaio: tutte le vincite con il personaggio a cui consegnarle
+  if (p === "/api/admin/estrazioni/consegne" && m === "GET") {
+    const { results } = await env.DB.prepare(
+      `SELECT v.id, v.giorno, v.a_testa, v.consegnato, v.consegnato_at, v.consegnato_da, v.nota,
+         d.tipo, d.descrizione, d.categoria,
+         u.id AS user_id, COALESCE(u.global_name, u.username) AS nome, u.username, u.pg, u.dc, u.mondo
+       FROM vincite v JOIN donazioni d ON d.id = v.donazione_id JOIN users u ON u.id = v.user_id
+       WHERE v.edition=? ORDER BY u.dc, u.mondo, u.pg COLLATE NOCASE, v.giorno`
+    ).bind(ed.year).all();
+    return json({
+      consegna_da: ed.consegna_da, consegna_a: ed.consegna_a,
+      vincite: results.map((v) => ({ ...v, etichetta: etichettaATesta(v, v.a_testa), gil: v.tipo === "gil" ? v.a_testa : 0 })),
+    });
+  }
+  if ((r = p.match(/^\/api\/admin\/estrazioni\/vincita\/(\d+)$/)) && m === "PUT") {
+    const b = (await req.json().catch(() => null)) || {};
+    const v = await env.DB.prepare("SELECT * FROM vincite WHERE id=? AND edition=?").bind(Number(r[1]), ed.year).first();
+    if (!v) return err(404, "Vincita non trovata");
+    const stato = [0, 1, 2].includes(b.consegnato) ? b.consegnato : v.consegnato;
+    const nota = "nota" in b ? (typeof b.nota === "string" ? b.nota.trim().slice(0, 200) : "") : v.nota;
+    const cambiato = stato !== v.consegnato;
+    await env.DB.prepare("UPDATE vincite SET consegnato=?, consegnato_at=?, consegnato_da=?, nota=? WHERE id=?")
+      .bind(stato, cambiato ? (stato ? Date.now() : null) : v.consegnato_at, cambiato ? (stato ? chi : null) : v.consegnato_da, nota, v.id).run();
+    return json({ ok: true });
   }
 
   // Biscotti di Tullio da accreditare a mano su Mee6

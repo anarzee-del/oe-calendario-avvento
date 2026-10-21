@@ -289,9 +289,9 @@ function vProfilo() {
 /* ---------- area staff ---------- */
 async function vStaff() {
   if (!admin()) return `<div class="pannello sigillata-box"><h2>Area riservata allo staff</h2></div>`;
-  const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["estrazioni", "Estrazioni"], ["biscotti", "Biscotti per Mee6"], ["testi", "Testi, date e regole"]];
+  const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["estrazioni", "Estrazioni"], ["consegne", "Consegne"], ["biscotti", "Biscotti per Mee6"], ["testi", "Testi, date e regole"]];
   const head = `<div class="staff"><nav class="staff-nav" aria-label="Sezioni staff">${nav.map(([k, t]) => `<button data-sez="${k}" aria-current="${S.staffSez === k}">${t}</button>`).join("")}
-    <p class="aiuto" style="padding:10px 12px">Partecipanti, messaggi per Tullio e consegne arrivano nei prossimi aggiornamenti.</p></nav><section id="staff-corpo"><p class="caricamento">Caricamento…</p></section></div>`;
+    <p class="aiuto" style="padding:10px 12px">Partecipanti e messaggi per Tullio arrivano nei prossimi aggiornamenti.</p></nav><section id="staff-corpo"><p class="caricamento">Caricamento…</p></section></div>`;
   return head;
 }
 
@@ -302,6 +302,7 @@ async function riempiStaff() {
   if (S.staffSez === "premi") return riempiPremi();
   if (S.staffSez === "estrazioni") return riempiEstrazioni();
   if (S.staffSez === "biscotti") return riempiBiscotti();
+  if (S.staffSez === "consegne") return riempiConsegne();
   try { S.adminGiorni = (await api("/api/admin/giorni")).giorni; }
   catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
   corpo.innerHTML = S.staffGiorno ? editorGiorno(S.adminGiorni.find((g) => g.n === S.staffGiorno)) : listaGiorni();
@@ -825,7 +826,7 @@ async function mioDicembre() {
       <p class="aiuto" style="margin-top:10px">I Biscotti vengono accreditati tutti insieme a gennaio.</p>
     </section>
     <section class="pannello"><h3>Premi vinti</h3>
-      ${m.vincite.length ? `<ul class="vinti">${m.vincite.map((v) => `<li><span class="vg"><b class="num">${v.giorno}</b><span>dic</span></span><span class="vt"><b>${esc(v.etichetta)}</b><span>${esc(v.categoria)} · consegna a ${esc(d.utente.pg || "il tuo personaggio")}${d.utente.mondo ? " · " + esc(d.utente.mondo) : ""}</span>${v.consegnato ? pill("ok", "Consegnato") : pill("warn", `Da consegnare dal ${dataLunga(ed.consegna_da)} al ${dataLunga(ed.consegna_a)}`)}</span></li>`).join("")}</ul>`
+      ${m.vincite.length ? `<ul class="vinti">${m.vincite.map((v) => `<li><span class="vg"><b class="num">${v.giorno}</b><span>dic</span></span><span class="vt"><b>${esc(v.etichetta)}</b><span>${esc(v.categoria)} · consegna a ${esc(d.utente.pg || "il tuo personaggio")}${d.utente.mondo ? " · " + esc(d.utente.mondo) : ""}</span>${v.consegnato ? pill("ok", "Consegnato") : v.non_ritirato ? pill("err", "Non ritirato") : pill("warn", `Da consegnare dal ${dataLunga(ed.consegna_da)} al ${dataLunga(ed.consegna_a)}`)}</span></li>`).join("")}</ul>`
         : `<p class="sub">Ancora niente. Le buste da aprire sono tante.</p>`}
     </section></div>`;
 }
@@ -905,4 +906,102 @@ document.addEventListener("click", async (e) => {
   const testo = S.biscotti.lista.map((x) => `${x.nome} (@${x.username}): ${x.totale}`).join("\n");
   try { await navigator.clipboard.writeText(testo); toast("Lista copiata"); }
   catch { toast("Non riesco a copiare: seleziona la lista a mano"); }
+});
+
+/* ---------- Consegne di gennaio ---------- */
+async function riempiConsegne() {
+  const corpo = $("#staff-corpo");
+  let a;
+  try { a = await api("/api/admin/estrazioni/consegne"); } catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
+  S.consegne = a;
+  disegnaConsegne();
+}
+
+function disegnaConsegne() {
+  const corpo = $("#staff-corpo"), a = S.consegne;
+  const f = S.filtroConsegne || "da";
+  const q = (S.cercaConsegne || "").toLowerCase();
+  const tutte = a.vincite;
+  const n = (st) => tutte.filter((v) => v.consegnato === st).length;
+  // raggruppa per data center → mondo → persona
+  const persone = new Map();
+  for (const v of tutte) {
+    if (f === "da" && v.consegnato !== 0) continue;
+    if (f === "fatte" && v.consegnato === 0) continue;
+    if (q && ![v.nome, v.username, v.pg].some((x) => (x || "").toLowerCase().includes(q))) continue;
+    if (!persone.has(v.user_id)) persone.set(v.user_id, { ...v, vincite: [] });
+    persone.get(v.user_id).vincite.push(v);
+  }
+  const gruppi = new Map();
+  for (const p of persone.values()) {
+    const k = `${p.dc || "Senza data center"}|${p.mondo || "Mondo non indicato"}`;
+    if (!gruppi.has(k)) gruppi.set(k, []);
+    gruppi.get(k).push(p);
+  }
+  const filtri = [["da", "Da consegnare", n(0)], ["fatte", "Consegnate o chiuse", n(1) + n(2)], ["tutte", "Tutte", tutte.length]];
+  corpo.innerHTML = `<h2>Consegne</h2>
+  <p class="intro">I premi da consegnare in gioco dal ${dataLunga(a.consegna_da)} al ${dataLunga(a.consegna_a)}, raggruppati per data center e mondo così vi spostate il meno possibile. Ogni persona riceve tutti i suoi premi in un'unica consegna.</p>
+  <div class="stats">
+    <div class="stat"><b>${n(1)}/${tutte.length}</b><span>Premi consegnati</span></div>
+    <div class="stat"><b>${n(0)}</b><span>Da consegnare</span></div>
+    <div class="stat"><b>${n(2)}</b><span>Non ritirati</span></div>
+  </div>
+  <div class="fila filtri" role="group" aria-label="Filtra">${filtri.map(([k, t, c]) => `<button class="btn ${f === k ? "" : "sec"} piccolo" data-act="filtro-consegne" data-f="${k}">${t} · ${c}</button>`).join("")}</div>
+  <div class="campo" style="max-width:360px;margin-top:12px"><label for="cerca-consegne">Cerca per nome o personaggio</label><input type="text" id="cerca-consegne" value="${esc(S.cercaConsegne || "")}" placeholder="Es. Mimi"></div>
+  ${gruppi.size ? [...gruppi.entries()].map(([k, ps]) => {
+    const [dc, mondo] = k.split("|");
+    return `<section class="gruppo-consegne"><h3>${esc(mondo)} <span class="aiuto">${esc(dc)} · ${ps.length} ${ps.length === 1 ? "persona" : "persone"}</span></h3>
+      <div class="doni">${ps.map(cardConsegna).join("")}</div></section>`;
+  }).join("") : `<p class="prossimamente">${tutte.length ? "Niente in questo elenco." : "Ancora nessun vincitore."}</p>`}`;
+}
+
+function cardConsegna(p) {
+  const gil = p.vincite.filter((v) => v.consegnato === 0).reduce((s, v) => s + (v.gil || 0), 0);
+  const aperte = p.vincite.filter((v) => v.consegnato === 0);
+  return `<div class="dono consegna">
+    <div class="dono-t"><b>${esc(p.pg || "Personaggio non indicato")}</b><span class="aiuto">${esc(p.nome)} · @${esc(p.username)}</span></div>
+    ${gil ? `<p class="aiuto">GIL da dare in tutto: <b>${gil.toLocaleString("it-IT")}</b></p>` : ""}
+    <ul class="consegna-lista">${p.vincite.map((v) => `<li class="${v.consegnato === 1 ? "fatto" : v.consegnato === 2 ? "chiuso" : ""}">
+      <label for="cv-${v.id}"><input type="checkbox" id="cv-${v.id}" data-consegna="${v.id}" ${v.consegnato === 1 ? "checked" : ""} ${v.consegnato === 2 ? "disabled" : ""}>
+        <span><b>${esc(v.etichetta)}</b> <span class="aiuto">${esc(v.categoria || "")} · giorno ${v.giorno}</span>
+        ${v.consegnato === 1 && v.consegnato_da ? `<span class="aiuto"> · consegnato da ${esc(v.consegnato_da)}</span>` : ""}${v.consegnato === 2 ? ` ${pill("err", "Non ritirato")}` : ""}</span></label>
+      <span class="fila">${v.consegnato === 2 ? `<button class="btn quieto piccolo" data-act="riapri-consegna" data-id="${v.id}">Riapri</button>` : v.consegnato === 0 ? `<button class="btn quieto piccolo" data-act="non-ritirato" data-id="${v.id}">Non ritirato</button>` : ""}</span>
+      <input type="text" class="nota-consegna" id="nc-${v.id}" data-nota="${v.id}" maxlength="200" value="${esc(v.nota || "")}" placeholder="Nota (es. glielo lascio in casa FC)" aria-label="Nota sulla consegna">
+    </li>`).join("")}</ul>
+    ${aperte.length > 1 ? `<button class="btn piccolo" data-act="consegna-tutto" data-ids="${aperte.map((v) => v.id).join(",")}" style="justify-self:start">Consegnato tutto</button>` : ""}
+  </div>`;
+}
+
+async function aggiornaVincita(id, body) {
+  await putJson(`/api/admin/estrazioni/vincita/${id}`, body);
+  const v = S.consegne.vincite.find((x) => x.id === Number(id));
+  if (v) Object.assign(v, body);
+}
+
+document.addEventListener("change", async (e) => {
+  const t = e.target;
+  try {
+    if (t.dataset?.consegna) { await aggiornaVincita(t.dataset.consegna, { consegnato: t.checked ? 1 : 0 }); toast(t.checked ? "Segnato come consegnato" : "Tolto il segno"); riempiConsegne(); }
+    if (t.dataset?.nota) { await aggiornaVincita(t.dataset.nota, { nota: t.value }); toast("Nota salvata"); }
+  } catch (err) { toast(err.message); }
+});
+document.addEventListener("input", (e) => {
+  if (e.target.id !== "cerca-consegne") return;
+  S.cercaConsegne = e.target.value;
+  const pos = e.target.selectionStart;
+  disegnaConsegne();
+  const el = $("#cerca-consegne"); el.focus(); el.setSelectionRange(pos, pos);
+});
+document.addEventListener("click", async (e) => {
+  const a = e.target.closest("[data-act]");
+  if (!a) return;
+  try {
+    if (a.dataset.act === "filtro-consegne") { S.filtroConsegne = a.dataset.f; disegnaConsegne(); }
+    if (a.dataset.act === "non-ritirato") { await aggiornaVincita(a.dataset.id, { consegnato: 2 }); riempiConsegne(); }
+    if (a.dataset.act === "riapri-consegna") { await aggiornaVincita(a.dataset.id, { consegnato: 0 }); riempiConsegne(); }
+    if (a.dataset.act === "consegna-tutto") {
+      for (const id of a.dataset.ids.split(",")) await aggiornaVincita(id, { consegnato: 1 });
+      toast("Tutti i premi segnati come consegnati"); riempiConsegne();
+    }
+  } catch (err) { toast(err.message); }
 });
