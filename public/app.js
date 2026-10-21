@@ -15,6 +15,7 @@ const ICO = {
   dono: '<svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="1"/><path d="M3 13h18M12 9v12M12 9c-2-4-6-4-6-1.5S9 9 12 9c3 0 6-.5 6-1.5S14 5 12 9Z"/></svg>',
   discord: '<svg viewBox="0 0 24 24" width="18" fill="currentColor" aria-hidden="true"><path d="M19.6 5.3A16.6 16.6 0 0 0 15.5 4l-.5 1a15.3 15.3 0 0 0-6 0L8.5 4a16.6 16.6 0 0 0-4.1 1.3C1.8 9.2 1.1 13 1.4 16.7a16.8 16.8 0 0 0 5 2.5l1.1-1.7a10.8 10.8 0 0 1-1.7-.8l.4-.3a11.9 11.9 0 0 0 10.2 0l.4.3c-.5.3-1.1.6-1.7.8l1.1 1.7a16.7 16.7 0 0 0 5-2.5c.4-4.3-.7-8.1-3-11.4ZM8.7 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.6 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/></svg>',
 };
+const NOTA_LOGIN = `<p class="aiuto nota-login">Si apre il sito ufficiale discord.com: noi non vediamo mai la tua password. <a href="/info.html">Come funziona</a></p>`;
 const ACCESSO = {
   server: "Per entrare devi far parte del server Discord di Our Elysion.",
   annullato: "Accesso annullato. Puoi riprovare quando vuoi.",
@@ -135,6 +136,7 @@ function vAttesa() {
     <div class="conto"><div><b>${k}</b><span>${k === 1 ? "giorno" : "giorni"} all'apertura</span></div><div><b>${S.dati.giorni.length || giorniTra(ed.inizio, ed.fine) + 1}</b><span>buste da aprire</span></div></div>
     <p>${connesso() ? "Ci sei! Intanto completa il tuo profilo: indica il personaggio a cui consegnare gli eventuali premi." : "Per partecipare servirà accedere con il tuo account Discord del server Our Elysion."}</p>
     ${connesso() ? `<a class="btn" href="#profilo">Completa il profilo</a>` : `<a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi con Discord</a>`}
+    ${connesso() ? "" : NOTA_LOGIN}
   </div>
   <div class="sotto">${pannelloCome()}</div>`;
 }
@@ -233,7 +235,7 @@ function pannelloGioco(g) {
     <span class="aiuto">Il premio esatto si scopre dopo l'estrazione.</span></div>`;
   if (g.stato === "passata") return h + `<p class="prossimamente">Estrazione in corso: ricarica la pagina tra qualche minuto.</p></div>`;
   if (g.stato === "sigillata") return h + (g.tipo === "sfida" ? domandaSfida(g, false) : "") + `<p class="prossimamente">Anteprima: il ${dataLunga(g.data)} qui i giocatori troveranno il pulsante per partecipare.</p></div>`;
-  if (!u) return h + `<a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi con Discord per partecipare</a>${chiude}</div>`;
+  if (!u) return h + `<a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi con Discord per partecipare</a>${NOTA_LOGIN}${chiude}</div>`;
   if (u.ruolo === "admin") return h + (g.tipo === "sfida" ? domandaSfida(g, false) : "") + `<p class="prossimamente">Lo staff non partecipa alle estrazioni. I giocatori qui vedono il pulsante "Partecipa"${g.tipo === "sfida" ? " e la domanda" : ""}.</p>${chiude}</div>`;
   if (!u.pg) return h + `<p>Prima di partecipare indica il personaggio a cui consegnare i premi.</p><a class="btn" href="#profilo">Completa il profilo</a>${chiude}</div>`;
   if (g.mia?.partecipato) {

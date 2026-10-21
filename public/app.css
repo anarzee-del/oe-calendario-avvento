@@ -128,3 +128,4 @@ details.pannello summary{cursor:pointer;display:flex;gap:8px;flex-wrap:wrap;alig
 .consegna-lista li.fatto b{text-decoration:line-through;opacity:.6}
 .consegna-lista li.chiuso b{opacity:.6}
 .nota-consegna{grid-column:1/-1;padding:6px 10px!important;font-size:14px!important}
+.nota-login{margin-top:6px}
