@@ -1,4 +1,4 @@
-// Annunci automatici in un canale Discord tramite webhook.
+// Annunci automatici in un canale Discord tramite webhook (nome e immagine sono quelli del webhook su Discord).
 // L'URL del webhook è un segreto (DISCORD_WEBHOOK_URL) impostato nel pannello Cloudflare.
 // Ogni annuncio ha una chiave (es. "apertura-5") salvata nella tabella annunci: così parte una volta sola.
 import { editionDays, romeNow, addDays, weekday } from "./time.js";
@@ -28,7 +28,7 @@ async function invia(env, corpo) {
   const res = await fetch(env.DISCORD_WEBHOOK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "Tullio", allowed_mentions: { parse: [] }, ...corpo }),
+    body: JSON.stringify({ allowed_mentions: { parse: [] }, ...corpo }),
   });
   if (!res.ok) console.error("Webhook Discord", res.status, await res.text().catch(() => ""));
   return res.ok;
