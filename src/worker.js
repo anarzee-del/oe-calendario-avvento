@@ -61,7 +61,7 @@ function oggiReale(url, env) {
 function publicEdition(ed) {
   return {
     anno: ed.year, inizio: ed.inizio, fine: ed.fine, consegna_da: ed.consegna_da, consegna_a: ed.consegna_a,
-    titolo: ed.titolo, sottotitolo: ed.sottotitolo, intro: ed.intro,
+    titolo: ed.titolo, sottotitolo: ed.sottotitolo, intro: ed.intro, marchio: ed.marchio || "",
     come_funziona: ed.come_funziona, regolamento: ed.regolamento,
     tappe: JSON.parse(ed.tappe || "[]"),
     donazioni_fino: ed.donazioni_fino, aiutanti_intro: ed.aiutanti_intro || "",
@@ -208,10 +208,10 @@ async function route(req, env, url, user, ctx) {
           .sort((a, c) => a.s - c.s)
         : [];
       const stmts = [env.DB.prepare(
-        `UPDATE editions SET inizio=?, fine=?, consegna_da=?, consegna_a=?, titolo=?, sottotitolo=?, intro=?,
+        `UPDATE editions SET inizio=?, fine=?, consegna_da=?, consegna_a=?, titolo=?, sottotitolo=?, marchio=?, intro=?,
          come_funziona=?, regolamento=?, tappe=?, donazioni_fino=?, aiutanti_intro=?,
          tetto=?, biglietti_sfida=?, biscotti_partecipazione=? WHERE year=?`
-      ).bind(b.inizio, b.fine, b.consegna_da, b.consegna_a, str(b.titolo, 80), str(b.sottotitolo, 120),
+      ).bind(b.inizio, b.fine, b.consegna_da, b.consegna_a, str(b.titolo, 80), str(b.sottotitolo, 120), str(b.marchio, 40),
         str(b.intro, 600), str(b.come_funziona, 4000), str(b.regolamento, 12000), JSON.stringify(tappe),
         b.donazioni_fino, str(b.aiutanti_intro, 3000), tetto, biglietti, biscotti, ed.year)];
       for (let n = 1; n <= count; n++) {

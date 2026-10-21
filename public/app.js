@@ -62,7 +62,7 @@ async function carica() {
 /* ---------- testata ---------- */
 function renderTesta() {
   const d = S.dati, ed = d.edizione;
-  $("#brand-anno").textContent = "Avvento " + ed.anno;
+  $("#brand-anno").textContent = ed.marchio || "Avvento " + ed.anno;
   $("#sottotitolo").textContent = ed.sottotitolo || "";
   $("#titolo").textContent = ed.titolo || "Calendario dell'Avvento";
   $("#intro").textContent = ed.intro || "";
@@ -391,6 +391,7 @@ function formTesti() {
       <div class="due">${d("t-inizio", "Prima casella", ed.inizio)}${d("t-fine", "Ultima casella", ed.fine)}${d("t-cda", "Consegne dal", ed.consegna_da)}${d("t-ca", "Consegne fino al", ed.consegna_a)}</div>
       <p class="aiuto">Se cambi le date, le caselle si adattano da sole (massimo 31).</p></div>
     <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Testata</h3>
+      <div class="campo"><label for="t-marchio">Scritta accanto al logo</label><input type="text" id="t-marchio" maxlength="40" value="${esc(ed.marchio)}" placeholder="Calendario dell'Avvento"><span class="aiuto">Sotto "Our Elysion", in alto a sinistra.</span></div>
       <div class="campo"><label for="t-titolo">Titolo</label><input type="text" id="t-titolo" maxlength="80" value="${esc(ed.titolo)}"></div>
       <div class="campo"><label for="t-sotto">Sottotitolo</label><input type="text" id="t-sotto" maxlength="120" value="${esc(ed.sottotitolo)}"></div>
       <div class="campo"><label for="t-intro">Introduzione</label><textarea id="t-intro" maxlength="600">${esc(ed.intro)}</textarea></div></div>
@@ -563,7 +564,7 @@ document.addEventListener("submit", async (e) => {
     const tappe = [0, 1, 2].map((i) => ({ s: $("#ts" + i).value, b: $("#tb" + i).value })).filter((t) => t.s !== "");
     const body = {
       inizio: $("#t-inizio").value, fine: $("#t-fine").value, consegna_da: $("#t-cda").value, consegna_a: $("#t-ca").value,
-      titolo: $("#t-titolo").value, sottotitolo: $("#t-sotto").value, intro: $("#t-intro").value,
+      marchio: $("#t-marchio").value, titolo: $("#t-titolo").value, sottotitolo: $("#t-sotto").value, intro: $("#t-intro").value,
       come_funziona: $("#t-come").value, regolamento: $("#t-reg").value, tappe,
       donazioni_fino: $("#t-dfino").value, aiutanti_intro: $("#t-aiut").value,
       tetto: Number($("#t-tetto").value), biglietti_sfida: Number($("#t-big").value), biscotti_partecipazione: Number($("#t-bisc").value),

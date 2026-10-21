@@ -1,6 +1,6 @@
 // Schema del database e dati iniziali. Lo schema si crea da solo alla prima richiesta.
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 // Ogni versione contiene solo le modifiche rispetto alla precedente.
 const V1 = [
@@ -113,7 +113,13 @@ const V5 = [
   `UPDATE editions SET aiutanti_intro = REPLACE(aiutanti_intro, 'a uno degli admin (Altea Skysinger o Iname Naname)', 'a uno degli admin, Altea Skysinger o Iname Naname (entrambi sul mondo Ragnarok, data center Chaos),')`,
 ];
 
-const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5 };
+// v6: scritta accanto al logo modificabile
+const V6 = [
+  `ALTER TABLE editions ADD COLUMN marchio TEXT`,
+  `UPDATE editions SET marchio = 'Calendario dell''Avvento' WHERE marchio IS NULL`,
+];
+
+const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6 };
 
 const COME_FUNZIONA_2026 = `Ogni giorno alle 00:00 si apre una busta con un nuovo capitolo della storia.
 
