@@ -129,3 +129,5 @@ details.pannello summary{cursor:pointer;display:flex;gap:8px;flex-wrap:wrap;alig
 .consegna-lista li.chiuso b{opacity:.6}
 .nota-consegna{grid-column:1/-1;padding:6px 10px!important;font-size:14px!important}
 .nota-login{margin-top:6px}
+/* Testi da leggere giustificati, con sillabazione italiana per evitare buchi tra le parole su telefono */
+.storia p,.regole p,.pagina-h p,.hero p,.passi li > span:last-child,.pannello .sub,.premio-card .pc-t p{text-align:justify;hyphens:auto;-webkit-hyphens:auto;hyphenate-limit-chars:6 3 3}
