@@ -20,6 +20,9 @@
   ],
   "workers_dev": false,
 
+  // Esegue il worker vicino al database: molte letture per pagina, meno attesa
+  "placement": { "mode": "smart" },
+
   // Estrazione di mezzanotte (22:00 e 23:00 UTC = 00:00 italiane con ora legale o solare)
   "triggers": { "crons": ["0 22,23 * * *"] },
 

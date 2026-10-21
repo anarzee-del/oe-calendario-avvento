@@ -151,9 +151,16 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
       const vis = await env.DB.prepare("SELECT 1 FROM vincite WHERE donazione_id=? LIMIT 1").bind(id).first();
       if (!vis) return new Response("Forbidden", { status: 403 });
     }
-    const img = await env.DB.prepare("SELECT mime,data FROM premio_img WHERE donazione_id=?").bind(id).first();
-    if (!img) return new Response("Not found", { status: 404 });
-    return new Response(new Uint8Array(img.data), { headers: { "Content-Type": img.mime, "Cache-Control": isAdmin ? "private, no-store" : "public, max-age=604800, immutable" } });
+    // copia in cache per versione dell'immagine (il permesso è già controllato sopra)
+    const chiave = new Request(`https://cache.oe-avvento/premio/${id}/${url.searchParams.get("v") || "0"}`);
+    let res = await caches.default.match(chiave);
+    if (!res) {
+      const img = await env.DB.prepare("SELECT mime,data FROM premio_img WHERE donazione_id=?").bind(id).first();
+      if (!img) return new Response("Not found", { status: 404 });
+      res = new Response(img.data instanceof ArrayBuffer ? img.data : new Uint8Array(img.data), { headers: { "Content-Type": img.mime, "Cache-Control": "public, max-age=31536000, immutable" } });
+      await caches.default.put(chiave, res.clone());
+    }
+    return new Response(res.body, { headers: { "Content-Type": res.headers.get("Content-Type"), "Cache-Control": isAdmin ? "private, no-store" : "public, max-age=604800, immutable" } });
   }
 
   /* ----- staff ----- */

@@ -224,7 +224,8 @@ async function seed(env) {
 }
 
 export async function currentEdition(env) {
-  const cur = await env.DB.prepare("SELECT value FROM settings WHERE key='edizione_corrente'").first();
-  const year = Number(cur.value);
-  return env.DB.prepare("SELECT * FROM editions WHERE year=?").bind(year).first();
+  // una sola richiesta al database
+  return env.DB.prepare(
+    "SELECT * FROM editions WHERE year = (SELECT CAST(value AS INTEGER) FROM settings WHERE key='edizione_corrente')"
+  ).first();
 }

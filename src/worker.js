@@ -35,8 +35,9 @@ export default {
         const origin = req.headers.get("Origin");
         if (origin && origin !== url.origin && env.DEV_LOGIN !== "1") return err(403, "Richiesta non consentita");
       }
-      const user = await currentUser(req, env);
-      return await route(req, env, url, user, ctx);
+      // utente ed edizione in parallelo: ogni richiesta al database costa un viaggio
+      const [user, ed] = await Promise.all([currentUser(req, env), currentEdition(env)]);
+      return await route(req, env, url, user, ed, ctx);
     } catch (e) {
       console.error(e);
       return err(500, "Errore interno, riprova tra poco");
@@ -87,10 +88,9 @@ const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 /* ---------- router ---------- */
 
-async function route(req, env, url, user, ctx) {
+async function route(req, env, url, user, ed, ctx) {
   const p = url.pathname;
   const m = req.method;
-  const ed = await currentEdition(env);
   const isAdmin = user?.role === "admin";
 
   if (p === "/api/stato" && m === "GET") return stato(env, url, user, ed, ctx);
@@ -232,24 +232,30 @@ async function route(req, env, url, user, ctx) {
 
 async function stato(env, url, user, ed, ctx) {
   const oggi = today(url, user, env);
-  // Rete di sicurezza: se il cron di mezzanotte non fosse partito, l'estrazione parte alla prima visita
   const reale = oggiReale(url, env);
+  // Tutte le letture in un solo viaggio al database
+  const q = [
+    env.DB.prepare("SELECT n,tipo,etichetta,titolo,fuoco,img_ver,stato_capitolo FROM days WHERE edition=?").bind(ed.year),
+    env.DB.prepare("SELECT giorno FROM estrazioni WHERE edition=?").bind(ed.year),
+    env.DB.prepare("SELECT COUNT(*) AS c FROM partecipazioni WHERE edition=?").bind(ed.year),
+    env.DB.prepare("SELECT 1 AS x FROM estrazioni LIMIT 1"),
+  ];
+  if (user) {
+    q.push(env.DB.prepare("SELECT giorno FROM partecipazioni WHERE edition=? AND user_id=?").bind(ed.year, user.id));
+    q.push(env.DB.prepare("SELECT 1 AS x FROM donazioni WHERE edition=? AND user_id=? AND stato='ricevuta' LIMIT 1").bind(ed.year, user.id));
+  }
+  const [rDays, rEstr, rLett, rAlbo, rMiei, rAiut] = await env.DB.batch(q);
+  const results = rDays.results;
+  // Rete di sicurezza: se il cron di mezzanotte non fosse partito, l'estrazione parte alla prima visita
   if (reale > ed.inizio && ctx?.waitUntil) {
-    const fatti = await giorniEstratti(env, ed.year);
+    const fatti = new Set(rEstr.results.map((r) => r.giorno));
     if (editionDays(ed).some((d) => d.data < reale && !fatti.has(d.n))) ctx.waitUntil(estraiArretrati(env, ed, reale).catch((e) => console.error(e)));
   }
-  let miei = new Set();
-  if (user) {
-    const { results } = await env.DB.prepare("SELECT giorno FROM partecipazioni WHERE edition=? AND user_id=?").bind(ed.year, user.id).all();
-    miei = new Set(results.map((x) => x.giorno));
-  }
+  const miei = new Set((rMiei?.results || []).map((x) => x.giorno));
   const isAdmin = user?.role === "admin";
   const days = editionDays(ed);
   const prima = oggi < ed.inizio;
   const dopo = oggi > ed.fine;
-  const { results } = await env.DB.prepare(
-    "SELECT n,tipo,etichetta,titolo,fuoco,img_ver,stato_capitolo FROM days WHERE edition=?"
-  ).bind(ed.year).all();
 
   // Prima dell'apertura i giocatori vedono solo la pagina d'attesa
   const chiuso = prima && !isAdmin;
@@ -268,13 +274,13 @@ async function stato(env, url, user, ed, ctx) {
   });
 
   return json({
-    utente: user ? { ...publicUser(user), aiutante: await isAiutante(env, user, ed.year) } : null,
+    utente: user ? { ...publicUser(user), aiutante: !!rAiut?.results?.length } : null,
     edizione: publicEdition(ed),
     oggi, prima, dopo, chiuso,
     simulata: isAdmin && oggi !== romeNow().date,
     giorni,
-    lettere: await contaLettere(env, ed.year),
-    ha_albo: !!(await env.DB.prepare("SELECT 1 FROM estrazioni LIMIT 1").first()),
+    lettere: rLett.results[0]?.c || 0,
+    ha_albo: !!rAlbo.results.length,
   });
 }
 
@@ -295,13 +301,15 @@ async function giorno(env, url, user, ed, n) {
     fuoco: row.fuoco || "centro",
     immagine: row.img_ver ? `/api/img/${n}/full?v=${row.img_ver}` : null,
   };
-  out.in_palio = inPalio((await assegnazioniPerGiorno(env, ed.year)).get(n));
-  out.estratta = (await giorniEstratti(env, ed.year)).has(n);
+  const [ass, estratti, mia] = await Promise.all([
+    assegnazioniPerGiorno(env, ed.year),
+    giorniEstratti(env, ed.year),
+    user ? env.DB.prepare("SELECT risposta FROM partecipazioni WHERE edition=? AND giorno=? AND user_id=?").bind(ed.year, n, user.id).first() : null,
+  ]);
+  out.in_palio = inPalio(ass.get(n));
+  out.estratta = estratti.has(n);
   if (out.estratta) out.premi = await premiEstratti(env, ed.year, n);
-  if (user) {
-    const mia = await env.DB.prepare("SELECT risposta FROM partecipazioni WHERE edition=? AND giorno=? AND user_id=?").bind(ed.year, n, user.id).first();
-    out.mia = mia ? { partecipato: true, risposta: mia.risposta } : { partecipato: false };
-  }
+  if (user) out.mia = mia ? { partecipato: true, risposta: mia.risposta } : { partecipato: false };
   if (out.tipo === "sfida") {
     out.domanda = row.domanda || "";
     out.risposte = JSON.parse(row.risposte || "[]");
@@ -317,13 +325,22 @@ async function immagine(env, url, user, ed, n, kind) {
   const isAdmin = user?.role === "admin";
   const aperta = romeNow().date >= d.data;
   if (!aperta && !isAdmin) return new Response("Forbidden", { status: 403 });
-  const img = await env.DB.prepare("SELECT mime,data FROM images WHERE edition=? AND n=? AND kind=?").bind(ed.year, n, kind).first();
-  if (!img) return new Response("Not found", { status: 404 });
-  return new Response(new Uint8Array(img.data), {
-    headers: {
-      "Content-Type": img.mime,
-      // Le immagini delle buste già aperte si possono tenere in cache; quelle future (anteprima staff) no
-      "Cache-Control": aperta ? "public, max-age=604800, immutable" : "private, no-store",
-    },
+  // Copia in cache vicino al giocatore: il database si legge una volta sola per versione dell'immagine.
+  // Il permesso è già stato controllato sopra, quindi la cache non scavalca il blocco delle buste future.
+  const ver = url.searchParams.get("v") || "0";
+  const chiave = new Request(`https://cache.oe-avvento/img/${ed.year}/${n}/${kind}/${ver}`);
+  const cache = caches.default;
+  let res = await cache.match(chiave);
+  if (!res) {
+    const img = await env.DB.prepare("SELECT mime,data FROM images WHERE edition=? AND n=? AND kind=?").bind(ed.year, n, kind).first();
+    if (!img) return new Response("Not found", { status: 404 });
+    res = new Response(img.data instanceof ArrayBuffer ? img.data : new Uint8Array(img.data), {
+      headers: { "Content-Type": img.mime, "Cache-Control": "public, max-age=31536000, immutable" },
+    });
+    await cache.put(chiave, res.clone());
+  }
+  // Le immagini delle buste già aperte si possono tenere nel browser; quelle future (anteprima staff) no
+  return new Response(res.body, {
+    headers: { "Content-Type": res.headers.get("Content-Type"), "Cache-Control": aperta ? "public, max-age=604800, immutable" : "private, no-store" },
   });
 }

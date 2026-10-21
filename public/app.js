@@ -487,10 +487,18 @@ function leggiHash() {
 window.addEventListener("hashchange", async () => {
   leggiHash();
   if (!S.dati) return; // il primo caricamento disegnerà la vista giusta
-  if (S.vista === "profilo" || S.vista === "calendario") { try { S.dati = await api(conSim("/api/stato")); } catch {} }
+  // disegna subito con i dati che abbiamo, poi aggiorna in silenzio
   renderTesta(); render();
   $("#vista").focus({ preventScroll: true });
   window.scrollTo({ top: Math.max(0, $(".testata").offsetHeight - 10), behavior: "smooth" });
+  if (S.vista === "profilo" || S.vista === "calendario") {
+    const vista = S.vista, prima = JSON.stringify(S.dati);
+    try {
+      const nuovi = await api(conSim("/api/stato"));
+      if (S.vista !== vista || JSON.stringify(nuovi) === prima) return;
+      S.dati = nuovi; renderTesta(); render();
+    } catch {}
+  }
 });
 
 /* ---------- eventi ---------- */
