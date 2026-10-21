@@ -150,10 +150,16 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
 
   // Albo dei vincitori
   if (p === "/api/albo" && m === "GET") {
-    const estratti = [...(await giorniEstratti(env, ed.year))].sort((a, b) => a - b);
+    const { results: anni } = await env.DB.prepare("SELECT DISTINCT edition FROM estrazioni ORDER BY edition DESC").all();
+    const richiesto = Number(url.searchParams.get("anno"));
+    const e = richiesto && richiesto !== ed.year
+      ? await env.DB.prepare("SELECT * FROM editions WHERE year=?").bind(richiesto).first()
+      : ed;
+    if (!e) return err(404, "Edizione non trovata");
+    const estratti = [...(await giorniEstratti(env, e.year))].sort((a, b) => a - b);
     const giorni = [];
-    for (const n of estratti) giorni.push({ n, data: editionDays(ed)[n - 1]?.data, premi: await premiEstratti(env, ed.year, n) });
-    return json({ anno: ed.year, giorni });
+    for (const n of estratti) giorni.push({ n, data: editionDays(e)[n - 1]?.data, premi: await premiEstratti(env, e.year, n) });
+    return json({ anno: e.year, anni: [...new Set([ed.year, ...anni.map((x) => x.edition)])].sort((a, b) => b - a), giorni });
   }
 
   // Il mio dicembre: partecipazioni e vincite

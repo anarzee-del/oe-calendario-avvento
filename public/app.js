@@ -70,7 +70,7 @@ function renderTesta() {
   document.title = (ed.titolo ? ed.titolo + " · " : "") + "Avvento Our Elysion";
 
   const voci = [["calendario", "Calendario"], ["aiutanti", "Aiutanti"]];
-  if (!S.dati.chiuso && !S.dati.prima) voci.push(["albo", "Albo"]);
+  if ((!S.dati.chiuso && !S.dati.prima) || S.dati.ha_albo) voci.push(["albo", "Albo"]);
   voci.push(["regolamento", "Regolamento"]);
   if (connesso()) voci.push(["profilo", "Il mio profilo"]);
   if (admin()) voci.push(["staff", "Area staff"]);
@@ -161,7 +161,7 @@ function vCalendario() {
     <div class="legenda"><span><i class="dot" style="background:var(--accent)"></i>Oggi</span><span><i class="dot" style="background:var(--primary)"></i>Giorno di sfida</span>${connesso() ? `<span><i class="dot" style="background:var(--ok)"></i>Hai partecipato</span>` : ""}</div></div>
   <div class="griglia">${d.giorni.map(busta).join("")}</div>
   <div class="sotto">${pannelloCome()}
-    <section class="pannello"><h3>Un messaggio per la community</h3><p class="sub">Presto potrai lasciare un messaggio a Tullio: da buon portavoce di Our Elysion, lo consegnerà a tutta la community.</p></section>
+    <section class="pannello" id="box-messaggi"><h3>Un messaggio per la community</h3><p class="sub">Caricamento…</p></section>
   </div>`;
 }
 
@@ -291,9 +291,9 @@ function vProfilo() {
 /* ---------- area staff ---------- */
 async function vStaff() {
   if (!admin()) return `<div class="pannello sigillata-box"><h2>Area riservata allo staff</h2></div>`;
-  const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["estrazioni", "Estrazioni"], ["consegne", "Consegne"], ["biscotti", "Biscotti per Mee6"], ["testi", "Testi, date e regole"]];
+  const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["estrazioni", "Estrazioni"], ["consegne", "Consegne"], ["biscotti", "Biscotti per Mee6"], ["messaggi", "Messaggi per Tullio"], ["partecipanti", "Partecipanti"], ["testi", "Testi, date e regole"], ["edizioni", "Edizioni e backup"]];
   const head = `<div class="staff"><nav class="staff-nav" aria-label="Sezioni staff">${nav.map(([k, t]) => `<button data-sez="${k}" aria-current="${S.staffSez === k}">${t}</button>`).join("")}
-    <p class="aiuto" style="padding:10px 12px">Partecipanti e messaggi per Tullio arrivano nei prossimi aggiornamenti.</p></nav><section id="staff-corpo"><p class="caricamento">Caricamento…</p></section></div>`;
+</nav><section id="staff-corpo"><p class="caricamento">Caricamento…</p></section></div>`;
   return head;
 }
 
@@ -305,6 +305,9 @@ async function riempiStaff() {
   if (S.staffSez === "estrazioni") return riempiEstrazioni();
   if (S.staffSez === "biscotti") return riempiBiscotti();
   if (S.staffSez === "consegne") return riempiConsegne();
+  if (S.staffSez === "messaggi") return riempiMessaggi();
+  if (S.staffSez === "partecipanti") return riempiPartecipanti();
+  if (S.staffSez === "edizioni") return riempiEdizioni();
   try { S.adminGiorni = (await api("/api/admin/giorni")).giorni; }
   catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
   corpo.innerHTML = S.staffGiorno ? editorGiorno(S.adminGiorni.find((g) => g.n === S.staffGiorno)) : listaGiorni();
@@ -469,6 +472,7 @@ async function render() {
   if (S.vista === "staff") riempiStaff();
   if (S.vista === "aiutanti") vAiutanti();
   if (S.vista === "albo") vAlbo();
+  if (S.vista === "calendario" && !S.dati.chiuso) boxMessaggi();
   if (S.vista === "profilo") mioDicembre();
 }
 
@@ -801,11 +805,13 @@ document.addEventListener("submit", async (e) => {
 async function vAlbo() {
   const v = $("#vista");
   let a;
-  try { a = await api("/api/albo"); } catch (e) { v.innerHTML = `<div class="avviso"><p>${esc(e.message)}</p></div>`; return; }
+  try { a = await api("/api/albo" + (S.alboAnno ? `?anno=${S.alboAnno}` : "")); } catch (e) { v.innerHTML = `<div class="avviso"><p>${esc(e.message)}</p></div>`; return; }
   if (S.vista !== "albo") return;
+  const corrente = a.anno === S.dati.edizione.anno;
   v.innerHTML = `<div class="pagina-h"><span class="label">Edizione ${a.anno}</span><h2>Albo dei vincitori</h2>
-    <p>Ogni notte a mezzanotte il sito estrae i vincitori del giorno, dando la precedenza a chi ha vinto meno premi finora.</p></div>
-  ${a.giorni.length ? `<div class="albo">${a.giorni.slice().reverse().map((g) => `<section class="albo-giorno"><h3><a href="#casella-${g.n}">Giorno ${g.n}</a> <span class="aiuto">${g.data ? dataLunga(g.data) : ""}</span></h3>
+    <p>Ogni notte a mezzanotte il sito estrae i vincitori del giorno, dando la precedenza a chi ha vinto meno premi finora.</p>
+    ${a.anni.length > 1 ? `<div class="fila filtri" role="group" aria-label="Edizione">${a.anni.map((y) => `<button class="btn ${y === a.anno ? "" : "sec"} piccolo" data-act="albo-anno" data-anno="${y}">${y}</button>`).join("")}</div>` : ""}</div>
+  ${a.giorni.length ? `<div class="albo">${a.giorni.slice().reverse().map((g) => `<section class="albo-giorno"><h3>${corrente ? `<a href="#casella-${g.n}">Giorno ${g.n}</a>` : `Giorno ${g.n}`} <span class="aiuto">${g.data ? dataLunga(g.data) : ""}</span></h3>
       <div class="premi">${g.premi.map(cardPremio).join("") || `<p class="sub">Nessun premio.</p>`}</div></section>`).join("")}</div>`
     : `<div class="pannello"><p>Nessuna estrazione ancora. I primi nomi compariranno nella notte dopo la prima busta.</p></div>`}`;
 }
@@ -1005,6 +1011,144 @@ document.addEventListener("click", async (e) => {
     if (a.dataset.act === "consegna-tutto") {
       for (const id of a.dataset.ids.split(",")) await aggiornaVincita(id, { consegnato: 1 });
       toast("Tutti i premi segnati come consegnati"); riempiConsegne();
+    }
+  } catch (err) { toast(err.message); }
+});
+
+/* ---------- messaggi per Tullio ---------- */
+async function boxMessaggi() {
+  let a;
+  try { a = await api(conSim("/api/messaggi")); } catch { return; }
+  const box = $("#box-messaggi");
+  if (!box) return;
+  const u = S.dati.utente;
+  let h = `<h3>Un messaggio per la community</h3>`;
+  if (a.pubblicata) {
+    box.outerHTML = `<section class="pannello posta" id="box-messaggi"><h3>La posta di Tullio</h3>
+      <p class="sub">Tullio, portavoce di Our Elysion, consegna alla community i messaggi che gli avete affidato.</p>
+      ${a.posta.length ? `<ul class="posta-lista">${a.posta.map((x) => `<li><p>${esc(x.testo)}</p><span class="aiuto">— ${esc(x.nome)}</span></li>`).join("")}</ul>` : `<p class="sub">Quest'anno la sacca di Tullio è rimasta vuota.</p>`}</section>`;
+    return;
+  }
+  h += `<p class="sub">Lascia un messaggio a Tullio: da buon portavoce di Our Elysion, lo consegnerà a tutta la community il ${dataLunga(a.pubblici_dal)}.</p>`;
+  if (!a.aperti) h += `<p class="prossimamente">${S.dati.oggi < a.da ? `Potrai scrivere dal ${dataLunga(a.da)}.` : "Tullio ha chiuso la sacca: i messaggi saranno consegnati domani."}</p>`;
+  else if (!u) h += `<a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi per scrivere</a>`;
+  else {
+    const st = a.mio ? { attesa: ["warn", "In attesa di approvazione"], ok: ["ok", "Approvato"], no: ["err", "Non approvato: puoi modificarlo"] }[a.mio.stato] : null;
+    h += `<form id="form-msg">
+      <div class="campo"><label for="msg-tullio">Il tuo messaggio</label>
+        <textarea id="msg-tullio" maxlength="500" placeholder="Caro Tullio, porta questo messaggio a tutti…">${esc(a.mio?.testo || "")}</textarea>
+        <span class="aiuto" id="msg-cont">${(a.mio?.testo || "").length} / 500 caratteri · modificabile fino al ${dataLunga(a.fino)}</span></div>
+      <div class="fila"><button class="btn" type="submit">${a.mio ? "Aggiorna il messaggio" : "Affida il messaggio a Tullio"}</button>${st ? pill(st[0], st[1]) : ""}
+      ${a.mio ? `<button type="button" class="btn quieto piccolo" data-act="msg-elimina">Ritira</button>` : ""}</div></form>`;
+  }
+  box.innerHTML = h;
+}
+
+async function riempiMessaggi() {
+  const corpo = $("#staff-corpo");
+  let a;
+  try { a = await api("/api/admin/extra/messaggi"); } catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
+  S.messaggi = a;
+  const f = S.filtroMsg || "attesa";
+  const n = (st) => a.messaggi.filter((x) => x.stato === st).length;
+  const lista = a.messaggi.filter((x) => f === "tutti" || x.stato === f);
+  const STM = { attesa: ["warn", "Da approvare"], ok: ["ok", "Approvato"], no: ["err", "Nascosto"] };
+  corpo.innerHTML = `<h2>Messaggi per Tullio</h2>
+  <p class="intro">I giocatori scrivono dal ${dataLunga(a.da)} al ${dataLunga(a.fino)}; il ${dataLunga(a.pubblici_dal)} i messaggi approvati compaiono a tutti come "La posta di Tullio". Se qualcuno modifica un messaggio, torna da approvare.</p>
+  <div class="fila filtri" role="group">${[["attesa", "Da approvare", n("attesa")], ["ok", "Approvati", n("ok")], ["no", "Nascosti", n("no")], ["tutti", "Tutti", a.messaggi.length]].map(([k, t, c]) => `<button class="btn ${f === k ? "" : "sec"} piccolo" data-act="filtro-msg" data-f="${k}">${t} · ${c}</button>`).join("")}
+    ${n("ok") ? `<button class="btn quieto piccolo" data-act="copia-msg">Copia gli approvati</button>` : ""}</div>
+  <div class="doni" style="margin-top:14px">${lista.length ? lista.map((x) => `<div class="dono">
+    <div class="dono-t"><b style="font-size:18px">${esc(x.nome)} <span class="aiuto">@${esc(x.username)}</span></b>${pill(...STM[x.stato])}</div>
+    <p class="msg-testo">${esc(x.testo)}</p>
+    <div class="fila">${x.stato !== "ok" ? `<button class="btn piccolo" data-act="msg-stato" data-id="${x.user_id}" data-s="ok">Approva</button>` : ""}
+      ${x.stato !== "no" ? `<button class="btn quieto piccolo" data-act="msg-stato" data-id="${x.user_id}" data-s="no">Nascondi</button>` : ""}
+      ${x.moderato_da ? `<span class="aiuto">da ${esc(x.moderato_da)}</span>` : ""}</div></div>`).join("") : `<p class="prossimamente">Nessun messaggio in questo elenco.</p>`}</div>`;
+}
+
+/* ---------- partecipanti ---------- */
+async function riempiPartecipanti() {
+  const corpo = $("#staff-corpo");
+  let a;
+  try { a = await api("/api/admin/extra/partecipanti"); } catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
+  S.partecipanti = a.partecipanti;
+  disegnaPartecipanti();
+}
+function disegnaPartecipanti() {
+  const corpo = $("#staff-corpo"), q = (S.cercaPart || "").toLowerCase();
+  const tutti = S.partecipanti;
+  const lista = tutti.filter((x) => !q || [x.nome, x.username, x.pg].some((y) => (y || "").toLowerCase().includes(q)));
+  const senzaProfilo = tutti.filter((x) => !x.staff && !x.pg).length;
+  corpo.innerHTML = `<h2>Partecipanti</h2>
+  <p class="intro">Tutti quelli che sono entrati nel sito con Discord. Chi viene escluso non può più partecipare, scrivere a Tullio né vincere; le partecipazioni già fatte restano ma non contano nelle estrazioni.</p>
+  <div class="stats">
+    <div class="stat"><b>${tutti.filter((x) => !x.staff).length}</b><span>Iscritti</span></div>
+    <div class="stat"><b>${senzaProfilo}</b><span>Senza personaggio indicato</span></div>
+    <div class="stat"><b>${tutti.filter((x) => x.escluso).length}</b><span>Esclusi</span></div>
+  </div>
+  <div class="campo" style="max-width:360px"><label for="cerca-part">Cerca per nome o personaggio</label><input type="text" id="cerca-part" value="${esc(S.cercaPart || "")}"></div>
+  <div class="doni">${lista.map((x) => `<div class="dono${x.escluso ? " escluso" : ""}">
+    <div class="dono-t"><b style="font-size:20px">${esc(x.nome)} <span class="aiuto">@${esc(x.username)}</span></b><span class="fila">${x.staff ? pill("", "Staff") : ""}${x.escluso ? pill("err", "Escluso") : ""}${!x.staff && !x.pg ? pill("warn", "Profilo incompleto") : ""}</span></div>
+    <p class="aiuto">${x.pg ? `${esc(x.pg)} · ${esc(x.mondo || "")} (${esc(x.dc || "")})` : "Personaggio non indicato"} · ${x.partecipazioni} ${x.partecipazioni === 1 ? "partecipazione" : "partecipazioni"} · ${x.vincite} ${x.vincite === 1 ? "premio" : "premi"}${x.doni ? ` · aiutante (${x.doni})` : ""}${x.last_login ? ` · ultimo accesso ${new Date(x.last_login).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}` : ""}</p>
+    ${x.staff ? "" : `<div class="fila"><button class="btn quieto piccolo ${x.escluso ? "" : "pericolo-testo"}" data-act="escludi" data-id="${x.id}" data-v="${x.escluso ? 0 : 1}">${x.escluso ? "Riammetti" : "Escludi"}</button></div>`}
+  </div>`).join("") || `<p class="prossimamente">Nessuno trovato.</p>`}</div>`;
+}
+
+/* ---------- edizioni e backup ---------- */
+async function riempiEdizioni() {
+  const corpo = $("#staff-corpo");
+  let a;
+  try { a = await api("/api/admin/extra/edizioni"); } catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
+  const cur = a.edizioni.find((e) => e.year === a.corrente);
+  const finita = cur && a.oggi > cur.fine;
+  corpo.innerHTML = `<h2>Edizioni e backup</h2>
+  <section class="pannello"><h3 style="font-size:22px">Backup</h3>
+    <p class="sub">Scarica una copia di tutti i dati (edizioni, capitoli, iscritti, premi, partecipazioni, vincite, consegne, messaggi). Le immagini restano nel sito. Conviene farlo prima del 1° dicembre e a fine evento.</p>
+    <a class="btn sec" href="/api/admin/extra/backup" download>Scarica il backup</a></section>
+  <section class="pannello" style="margin-top:16px"><h3 style="font-size:22px">Edizioni</h3>
+    <div class="doni">${a.edizioni.map((e) => `<div class="dono"><div class="dono-t"><b>${e.year} · ${esc(e.titolo || "")}</b>${e.year === a.corrente ? pill("ok", "Corrente") : pill("", "Archiviata")}</div>
+      <p class="aiuto">${dataLunga(e.inizio)} – ${dataLunga(e.fine)} · ${e.partecipazioni} partecipazioni · ${e.vincite} premi vinti${e.da_consegnare ? ` · ${e.da_consegnare} ancora da consegnare` : ""}</p></div>`).join("")}</div>
+    <div style="margin-top:14px;display:grid;gap:8px">
+      <p class="sub">Quando l'edizione ${a.corrente} è finita e le consegne sono chiuse, apri l'edizione ${a.corrente + 1}: testi, regole e giorni di sfida vengono copiati con le date spostate di un anno; capitoli, premi e partecipazioni ripartono da zero. L'albo del ${a.corrente} resta consultabile.</p>
+      <button class="btn" data-act="nuova-edizione" ${finita ? "" : "disabled"} style="justify-self:start">Apri l'edizione ${a.corrente + 1}</button>
+      ${finita ? "" : `<span class="aiuto">Disponibile dal giorno dopo il ${dataLunga(cur.fine)}.</span>`}
+    </div></section>`;
+}
+
+document.addEventListener("submit", async (e) => {
+  if (e.target.id !== "form-msg") return;
+  e.preventDefault();
+  try { await putJson("/api/messaggi", { testo: $("#msg-tullio").value }); toast("Messaggio affidato a Tullio: lo staff lo leggerà presto"); boxMessaggi(); }
+  catch (err) { toast(err.message); }
+});
+document.addEventListener("input", (e) => {
+  if (e.target.id === "cerca-part") {
+    S.cercaPart = e.target.value; const pos = e.target.selectionStart; disegnaPartecipanti();
+    const el = $("#cerca-part"); el.focus(); el.setSelectionRange(pos, pos);
+  }
+});
+document.addEventListener("click", async (e) => {
+  const a = e.target.closest("[data-act]");
+  if (!a) return;
+  const act = a.dataset.act;
+  try {
+    if (act === "albo-anno") { S.alboAnno = Number(a.dataset.anno); vAlbo(); }
+    if (act === "msg-elimina") {
+      if (a.dataset.conferma !== "1") { a.dataset.conferma = "1"; a.textContent = "Conferma: ritira il messaggio"; return; }
+      await api("/api/messaggi", { method: "DELETE" }); toast("Messaggio ritirato"); boxMessaggi();
+    }
+    if (act === "filtro-msg") { S.filtroMsg = a.dataset.f; riempiMessaggi(); }
+    if (act === "msg-stato") { await putJson(`/api/admin/extra/messaggio/${a.dataset.id}`, { stato: a.dataset.s }); riempiMessaggi(); }
+    if (act === "copia-msg") {
+      const t = S.messaggi.messaggi.filter((x) => x.stato === "ok").map((x) => `${x.nome}: ${x.testo}`).join("\n\n");
+      try { await navigator.clipboard.writeText(t); toast("Messaggi copiati"); } catch { toast("Non riesco a copiare"); }
+    }
+    if (act === "escludi") {
+      if (a.dataset.v === "1" && a.dataset.conferma !== "1") { a.dataset.conferma = "1"; a.textContent = "Conferma esclusione"; a.classList.add("conferma"); return; }
+      await putJson(`/api/admin/extra/partecipante/${a.dataset.id}`, { escluso: a.dataset.v === "1" }); toast(a.dataset.v === "1" ? "Escluso dall'evento" : "Riammesso"); riempiPartecipanti();
+    }
+    if (act === "nuova-edizione") {
+      if (a.dataset.conferma !== "1") { a.dataset.conferma = "1"; a.textContent = "Conferma: archivia e apri la nuova edizione"; a.classList.add("conferma"); return; }
+      const r = await api("/api/admin/extra/edizioni", { method: "POST" }); toast(`Edizione ${r.anno} aperta`); await carica(); riempiEdizioni();
     }
   } catch (err) { toast(err.message); }
 });

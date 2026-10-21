@@ -4,6 +4,7 @@ import { handleAuth, currentUser } from "./auth.js";
 import { romeNow, editionDays, dayState, weekday, isIsoDate } from "./time.js";
 import { handleDonazioni, assegnazioniPerGiorno, inPalio, isAiutante } from "./donazioni.js";
 import { handleGioco, estraiArretrati, giorniEstratti, contaLettere, premiEstratti } from "./gioco.js";
+import { handleExtra } from "./extra.js";
 
 const JSONH = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: JSONH });
@@ -98,6 +99,8 @@ async function route(req, env, url, user, ctx) {
   if (dr) return dr;
   const gr = await handleGioco(req, env, url, user, ed, user?.role === "admin" ? oggiReale(url, env) : today(url, user, env), oggiReale(url, env));
   if (gr) return gr;
+  const xr = await handleExtra(req, env, url, user, ed, user?.role === "admin" ? oggiReale(url, env) : today(url, user, env));
+  if (xr) return xr;
 
   let r;
   if ((r = p.match(/^\/api\/giorno\/(\d{1,2})$/)) && m === "GET") return giorno(env, url, user, ed, Number(r[1]));
@@ -271,6 +274,7 @@ async function stato(env, url, user, ed, ctx) {
     simulata: isAdmin && oggi !== romeNow().date,
     giorni,
     lettere: await contaLettere(env, ed.year),
+    ha_albo: !!(await env.DB.prepare("SELECT 1 FROM estrazioni LIMIT 1").first()),
   });
 }
 

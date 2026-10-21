@@ -1,6 +1,6 @@
 // Schema del database e dati iniziali. Lo schema si crea da solo alla prima richiesta.
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 // Ogni versione contiene solo le modifiche rispetto alla precedente.
 const V1 = [
@@ -119,7 +119,15 @@ const V6 = [
   `UPDATE editions SET marchio = 'Calendario dell''Avvento' WHERE marchio IS NULL`,
 ];
 
-const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6 };
+// v7: messaggi per Tullio
+const V7 = [
+  `CREATE TABLE IF NOT EXISTS messaggi (
+     edition INTEGER NOT NULL, user_id TEXT NOT NULL, testo TEXT NOT NULL,
+     stato TEXT NOT NULL DEFAULT 'attesa', created_at INTEGER, updated_at INTEGER, moderato_da TEXT,
+     PRIMARY KEY (edition, user_id))`,
+];
+
+const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7 };
 
 const COME_FUNZIONA_2026 = `Ogni giorno alle 00:00 si apre una busta con un nuovo capitolo della storia.
 
