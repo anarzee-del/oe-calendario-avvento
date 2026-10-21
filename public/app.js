@@ -209,7 +209,7 @@ function chipsPalio(list) {
 
 function domandaSfida(g, interattiva) {
   const ris = (g.risposte || []).map((r, i) => [r, i]).filter(([r]) => r);
-  return `<div><span class="label" style="color:var(--primary)">Sfida${g.etichetta ? " di " + esc(g.etichetta) : ""} · ${S.dati.edizione.biglietti_sfida} biglietti se giusta</span>
+  return `<div><span class="label" style="color:var(--primary)">Sfida${g.etichetta ? " di " + esc(g.etichetta) : ""} · ${S.dati.edizione.biglietti_sfida} biglietti se corretta</span>
     <p class="domanda">${esc(g.domanda || "La domanda della sfida comparirà qui.")}</p>
     ${interattiva
       ? `<div class="scelte">${ris.map(([r, i]) => `<label class="scelta" for="r${i}"><input type="radio" name="r" id="r${i}" value="${i}"> ${esc(r)}</label>`).join("")}</div>`
