@@ -137,3 +137,6 @@ details.pannello summary{cursor:pointer;display:flex;gap:8px;flex-wrap:wrap;alig
 .posta-lista p{font-size:16px;white-space:pre-line}
 .msg-testo{font-size:16px;white-space:pre-line}
 .dono.escluso{opacity:.65}
+.vinc-staff > li{display:grid;gap:4px}
+.vinc-staff ul{list-style:none;padding:0;margin:0;display:grid;gap:4px}
+.vinc-staff ul li{display:flex;flex-wrap:wrap;gap:8px;align-items:center}

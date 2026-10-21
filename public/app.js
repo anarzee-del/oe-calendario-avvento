@@ -854,10 +854,12 @@ async function riempiEstrazioni() {
     return `<div class="dono">
       <div class="dono-t"><b>Giorno ${g.n} <span class="aiuto">${GG[new Date(g.data + "T12:00:00Z").getUTCDay()]} ${dataBreve(g.data)}</span></b><span class="fila">${pill(c, t)}</span></div>
       <p class="aiuto">${g.partecipanti} ${g.partecipanti === 1 ? "partecipante" : "partecipanti"} · ${g.posti} ${g.posti === 1 ? "premio" : "premi"} in palio${g.eseguita_at ? ` · estratta il ${new Date(g.eseguita_at).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} (${esc(g.eseguita_da)})` : ""}</p>
-      ${g.premi.length ? `<ul class="ass-lista">${g.premi.map((p) => `<li><b>${esc(p.etichetta)}</b> → ${p.vincitori.length ? p.vincitori.map((v) => esc(v.nome)).join(", ") : "<i>nessun vincitore</i>"}</li>`).join("")}</ul>` : ""}
+      ${g.premi.length ? `<ul class="ass-lista vinc-staff">${g.premi.map((p) => `<li><b>${esc(p.etichetta)}</b>
+        ${p.vincitori.length ? `<ul>${p.vincitori.map((v) => `<li><span>${esc(v.nome)}</span>${v.consegnato === 1 ? pill("ok", "Consegnato") : `<button class="btn quieto piccolo" data-act="riestrai-uno" data-id="${v.vincita}" data-nome="${esc(v.nome)}">Rinuncia: riestrai</button>`}</li>`).join("")}</ul>` : " → <i>nessun vincitore</i>"}</li>`).join("")}</ul>` : ""}
+      ${g.log.some((l) => l.startsWith("Rinuncia")) ? `<p class="aiuto">${g.log.filter((l) => l.startsWith("Rinuncia")).map(esc).join("<br>")}</p>` : ""}
       ${g.log.some((l) => l.startsWith("Nessun")) ? `<p class="aiuto" style="color:var(--warn)">${g.log.filter((l) => l.startsWith("Nessun")).map(esc).join("<br>")}</p>` : ""}
       <div class="fila">${g.stato === "da_estrarre" ? `<button class="btn piccolo" data-act="estrai" data-n="${g.n}">Estrai ora</button>` : ""}
-        ${g.stato === "estratta" ? `<button class="btn quieto piccolo pericolo-testo" data-act="ripeti-estrazione" data-n="${g.n}">Ripeti l'estrazione</button>` : ""}</div>
+        ${g.stato === "estratta" ? `<button class="btn quieto piccolo pericolo-testo" data-act="ripeti-estrazione" data-n="${g.n}">Ripeti tutta l'estrazione del giorno</button>` : ""}</div>
     </div>`;
   }).join("")}</div>`;
 }
@@ -1152,4 +1154,13 @@ document.addEventListener("click", async (e) => {
       const r = await api("/api/admin/extra/edizioni", { method: "POST" }); toast(`Edizione ${r.anno} aperta`); await carica(); riempiEdizioni();
     }
   } catch (err) { toast(err.message); }
+});
+
+document.addEventListener("click", async (e) => {
+  const a = e.target.closest('[data-act="riestrai-uno"]');
+  if (!a) return;
+  if (a.dataset.conferma !== "1") { a.dataset.conferma = "1"; a.textContent = `Conferma: togli il premio a ${a.dataset.nome} e riestrai`; a.classList.add("conferma"); return; }
+  a.disabled = true;
+  try { const r = await api(`/api/admin/estrazioni/vincita/${a.dataset.id}/riestrai`, { method: "POST" }); toast(`Premio passato da ${r.prima} a ${r.dopo}`); riempiEstrazioni(); }
+  catch (err) { toast(err.message); a.disabled = false; }
 });

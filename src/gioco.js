@@ -102,7 +102,7 @@ export async function contaLettere(env, year) {
 export async function premiEstratti(env, year, n) {
   const assegn = (await assegnazioniPerGiorno(env, year)).get(n) || [];
   const { results: vinc } = await env.DB.prepare(
-    `SELECT v.assegnazione_id, v.user_id, COALESCE(u.global_name, u.username) AS nome FROM vincite v JOIN users u ON u.id = v.user_id
+    `SELECT v.id, v.assegnazione_id, v.user_id, v.consegnato, COALESCE(u.global_name, u.username) AS nome FROM vincite v JOIN users u ON u.id = v.user_id
      WHERE v.edition=? AND v.giorno=? ORDER BY v.id`
   ).bind(year, n).all();
   return assegn.map((a) => ({
@@ -113,7 +113,7 @@ export async function premiEstratti(env, year, n) {
     immagine: a.img_ver ? `/api/img/premio/${a.id}?v=${a.img_ver}` : null,
     offerto: donatorePubblico(a).frase,
     posti: a.vincitori,
-    vincitori: vinc.filter((v) => v.assegnazione_id === a.a_id).map((v) => ({ id: v.user_id, nome: v.nome })),
+    vincitori: vinc.filter((v) => v.assegnazione_id === a.a_id).map((v) => ({ id: v.user_id, nome: v.nome, vincita: v.id, consegnato: v.consegnato })),
   }));
 }
 
@@ -260,6 +260,41 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
     if (b?.fatto) await env.DB.prepare("INSERT OR REPLACE INTO biscotti_fatti(edition,user_id,fatto_at,fatto_da) VALUES(?,?,?,?)").bind(ed.year, r[1], Date.now(), chi).run();
     else await env.DB.prepare("DELETE FROM biscotti_fatti WHERE edition=? AND user_id=?").bind(ed.year, r[1]).run();
     return json({ ok: true });
+  }
+
+  // Rinuncia di un vincitore: si riestrae solo quel premio, con le stesse regole
+  if ((r = p.match(/^\/api\/admin\/estrazioni\/vincita\/(\d+)\/riestrai$/)) && m === "POST") {
+    const v = await env.DB.prepare("SELECT * FROM vincite WHERE id=? AND edition=?").bind(Number(r[1]), ed.year).first();
+    if (!v) return err(404, "Vincita non trovata");
+    if (v.consegnato === 1) return err(400, "Questo premio risulta già consegnato");
+    const day = await env.DB.prepare("SELECT tipo, giusta FROM days WHERE edition=? AND n=?").bind(ed.year, v.giorno).first() || {};
+    const dono = await env.DB.prepare("SELECT user_id FROM donazioni WHERE id=?").bind(v.donazione_id).first() || {};
+    const { results: part } = await env.DB.prepare(
+      `SELECT p.user_id, p.risposta FROM partecipazioni p JOIN users u ON u.id = p.user_id
+       WHERE p.edition=? AND p.giorno=? AND u.escluso=0`
+    ).bind(ed.year, v.giorno).all();
+    const { results: vinte } = await env.DB.prepare("SELECT user_id, COUNT(*) AS c FROM vincite WHERE edition=? AND id<>? GROUP BY user_id").bind(ed.year, v.id).all();
+    const totali = new Map(vinte.map((x) => [x.user_id, x.c]));
+    const { results: oggi } = await env.DB.prepare("SELECT user_id FROM vincite WHERE edition=? AND giorno=? AND id<>?").bind(ed.year, v.giorno, v.id).all();
+    const giaOggi = new Set(oggi.map((x) => x.user_id));
+    const eleggibili = part.filter((x) => x.user_id !== v.user_id && !giaOggi.has(x.user_id) &&
+      (totali.get(x.user_id) || 0) < (ed.tetto || 5) && x.user_id !== dono.user_id);
+    if (!eleggibili.length) return err(400, "Non c'è nessun altro partecipante di quel giorno che possa ricevere il premio");
+    const minimo = Math.min(...eleggibili.map((x) => totali.get(x.user_id) || 0));
+    const sfida = day.tipo === "sfida";
+    const candidati = eleggibili.filter((x) => (totali.get(x.user_id) || 0) === minimo)
+      .map((x) => ({ ...x, biglietti: sfida && day.giusta !== null && x.risposta === day.giusta ? Math.max(1, ed.biglietti_sfida || 3) : 1 }));
+    const w = pesca(candidati);
+    const prima = await env.DB.prepare("SELECT COALESCE(global_name, username) AS nome FROM users WHERE id=?").bind(v.user_id).first();
+    const dopo = await env.DB.prepare("SELECT COALESCE(global_name, username) AS nome FROM users WHERE id=?").bind(w.user_id).first();
+    const e = await env.DB.prepare("SELECT log FROM estrazioni WHERE edition=? AND giorno=?").bind(ed.year, v.giorno).first();
+    const log = JSON.parse(e?.log || "[]");
+    log.push(`Rinuncia di ${prima?.nome || "?"}: riestratto ${dopo?.nome || "?"} (${chi})`);
+    await env.DB.batch([
+      env.DB.prepare("UPDATE vincite SET user_id=?, consegnato=0, consegnato_at=NULL, consegnato_da=NULL, nota=NULL, created_at=? WHERE id=?").bind(w.user_id, Date.now(), v.id),
+      env.DB.prepare("UPDATE estrazioni SET log=? WHERE edition=? AND giorno=?").bind(JSON.stringify(log), ed.year, v.giorno),
+    ]);
+    return json({ ok: true, prima: prima?.nome, dopo: dopo?.nome });
   }
 
   if ((r = p.match(/^\/api\/admin\/estrazione\/(\d{1,2})(\/ripeti)?$/)) && m === "POST") {
