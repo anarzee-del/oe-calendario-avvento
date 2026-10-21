@@ -7,6 +7,7 @@ const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 const intIn = (v, min, max) => { const n = Number(v); return Number.isInteger(n) && n >= min && n <= max ? n : null; };
 const STATI = new Set(["offerta", "accettata", "ricevuta", "rifiutata"]);
 const MAX_OFFERTE_UTENTE = 20;
+const MIN_GIL_OFFERTA = 100_000; // minimo per le offerte della community (lo staff non ha limiti)
 const STAFF = "lo staff di Our Elysion";
 const MAX_IMG = 600_000;
 
@@ -31,8 +32,8 @@ export function etichettaATesta(d, aTesta) {
 export function donatorePubblico(d) {
   if (!d) return null;
   let r;
-  if (d.anonimo) r = { anonimo: true, nome: "unə aiutante anonimə" };
-  else if (d.user_id) r = { nome: d.u_nome || "unə aiutante" };
+  if (d.anonimo) r = { anonimo: true, nome: "un aiutante anonimo" };
+  else if (d.user_id) r = { nome: d.u_nome || "un aiutante" };
   else r = { nome: d.donatore_nome || STAFF, staff: !d.donatore_nome };
   r.frase = r.staff ? "Offerto dallo staff di Our Elysion" : `Offerto da ${r.nome}`;
   return r;
@@ -119,6 +120,7 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
     const b = await req.json().catch(() => null);
     const v = validaDono(b);
     if (v.errore) return err(400, v.errore);
+    if (v.tipo === "gil" && v.gil < MIN_GIL_OFFERTA) return err(400, `L'offerta minima in GIL è di ${MIN_GIL_OFFERTA.toLocaleString("it-IT")} GIL`);
     const c = await env.DB.prepare("SELECT COUNT(*) AS c FROM donazioni WHERE edition=? AND user_id=?").bind(ed.year, user.id).first();
     if (c.c >= MAX_OFFERTE_UTENTE) return err(400, "Hai già registrato molte offerte: scrivi allo staff per aggiungerne altre");
     const now = Date.now();

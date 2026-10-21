@@ -1,6 +1,6 @@
 // Schema del database e dati iniziali. Lo schema si crea da solo alla prima richiesta.
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 // Ogni versione contiene solo le modifiche rispetto alla precedente.
 const V1 = [
@@ -141,15 +141,21 @@ const V9 = [
   `UPDATE editions SET aiutanti_intro = REPLACE(aiutanti_intro, '"un aiutante anonimo"', '"unə aiutante anonimə"')`,
   `UPDATE editions SET aiutanti_intro = REPLACE(aiutanti_intro, 'Sul tuo profilo comparirà il segno di Aiutante.', 'Accanto al tuo nome comparirà il francobollo dorato dell''Aiutante del postino.')`,
 ];
-const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9 };
+// V10: niente schwa, si torna al maschile generico (decisione del 21/10)
+const V10 = [
+  `UPDATE editions SET come_funziona = REPLACE(come_funziona, 'il sito estrae lə vincitorə', 'il sito estrae il vincitore')`,
+  `UPDATE editions SET come_funziona = REPLACE(come_funziona, 'tuttə lə partecipanti ricevono', 'tutti i partecipanti ricevono')`,
+  `UPDATE editions SET aiutanti_intro = REPLACE(aiutanti_intro, '"unə aiutante anonimə"', '"un aiutante anonimo"')`,
+];
+const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9, 10: V10 };
 
 const COME_FUNZIONA_2026 = `Ogni giorno alle 00:00 si apre una busta con un nuovo capitolo della storia.
 
 Nei giorni normali partecipi all'estrazione con un clic. Domeniche e feste hanno una sfida: rispondi correttamente e ottieni più biglietti.
 
-A mezzanotte la busta si chiude e il sito estrae lə vincitorə. Chi non vince riceve comunque i Biscotti di Tullio.
+A mezzanotte la busta si chiude e il sito estrae il vincitore. Chi non vince riceve comunque i Biscotti di Tullio.
 
-Ogni partecipazione è una lettera ritrovata. Ai traguardi della community, tuttə lə partecipanti ricevono Biscotti extra.
+Ogni partecipazione è una lettera ritrovata. Ai traguardi della community, tutti i partecipanti ricevono Biscotti extra.
 
 I premi si consegnano in gioco dal 2 al 15 gennaio, su Light e Chaos.`;
 
