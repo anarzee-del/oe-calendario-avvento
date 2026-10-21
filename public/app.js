@@ -15,6 +15,7 @@ const ICO = {
   dono: '<svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="1"/><path d="M3 13h18M12 9v12M12 9c-2-4-6-4-6-1.5S9 9 12 9c3 0 6-.5 6-1.5S14 5 12 9Z"/></svg>',
   discord: '<svg viewBox="0 0 24 24" width="18" fill="currentColor" aria-hidden="true"><path d="M19.6 5.3A16.6 16.6 0 0 0 15.5 4l-.5 1a15.3 15.3 0 0 0-6 0L8.5 4a16.6 16.6 0 0 0-4.1 1.3C1.8 9.2 1.1 13 1.4 16.7a16.8 16.8 0 0 0 5 2.5l1.1-1.7a10.8 10.8 0 0 1-1.7-.8l.4-.3a11.9 11.9 0 0 0 10.2 0l.4.3c-.5.3-1.1.6-1.7.8l1.1 1.7a16.7 16.7 0 0 0 5-2.5c.4-4.3-.7-8.1-3-11.4ZM8.7 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.6 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/></svg>',
 };
+const SEGNO = (cls = "") => `<svg class="segno ${cls}" viewBox="0 0 64 64" role="img" aria-label="Aiutante del postino"><title>Aiutante del postino</title><use href="#segno-aiutante"/></svg>`;
 const NOTA_LOGIN = `<p class="aiuto nota-login">Si apre il sito ufficiale discord.com: noi non vediamo mai la tua password. <a href="/info.html">Come funziona</a></p>`;
 const ACCESSO = {
   server: "Per entrare devi far parte del server Discord di Our Elysion.",
@@ -81,7 +82,7 @@ function renderTesta() {
 
   const u = d.utente;
   $("#utente").innerHTML = u
-    ? `<span class="avatar" aria-hidden="true">${u.avatar ? `<img src="${esc(u.avatar)}" alt="">` : esc(u.nome[0] || "?")}</span><span>${esc(u.nome)}${u.ruolo === "admin" ? " · staff" : ""}</span><button class="esci" data-act="esci">Esci</button>`
+    ? `<span class="avatar" aria-hidden="true">${u.avatar ? `<img src="${esc(u.avatar)}" alt="">` : esc(u.nome[0] || "?")}</span><span>${esc(u.nome)}${u.aiutante ? SEGNO() : ""}${u.ruolo === "admin" ? " · staff" : ""}</span><button class="esci" data-act="esci">Esci</button>`
     : `<a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi con Discord</a>`;
 
   // contatore della community
@@ -260,7 +261,7 @@ function cardPremio(p) {
     ${p.immagine ? `<img src="${esc(p.immagine)}" alt="" loading="lazy">` : ""}
     <div class="pc-t"><span class="label">${esc(p.categoria)}${p.posti > 1 ? ` · ${p.posti} vincitori` : ""}</span><b>${esc(p.etichetta)}</b>
       ${p.dettagli ? `<p>${esc(p.dettagli)}</p>` : ""}<span class="aiuto">${esc(p.offerto)}</span>
-      <ul class="vincitori">${p.vincitori.length ? p.vincitori.map((v) => `<li${u && v.id === u.id ? ' class="io"' : ""}>${esc(v.nome)}</li>`).join("") : `<li class="nessuno">Nessun vincitore</li>`}</ul>
+      <ul class="vincitori">${p.vincitori.length ? p.vincitori.map((v) => `<li${u && v.id === u.id ? ' class="io"' : ""}>${esc(v.nome)}${v.aiutante ? SEGNO() : ""}</li>`).join("") : `<li class="nessuno">Nessun vincitore</li>`}</ul>
     </div></div>`;
 }
 
@@ -278,7 +279,8 @@ function vProfilo() {
   const u = S.dati.utente;
   if (!u) return `<div class="pannello sigillata-box"><h2>Accedi per vedere il tuo profilo</h2><a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi con Discord</a></div>`;
   const dc = u.dc || "Light";
-  return `<div class="pagina-h"><span class="label">Il mio profilo</span><h2>${esc(u.nome)}</h2><p>@${esc(u.username)} su Discord</p>${u.aiutante ? `<span class="segno-aiutante">${ICO.dono} Aiutante del postino</span>` : ""}</div>
+  return `<div class="pagina-h"><span class="label">Il mio profilo</span><h2>${esc(u.nome)}</h2><p>@${esc(u.username)} su Discord</p></div>
+  ${u.aiutante ? `<div class="timbro-aiutante">${SEGNO("grande")}<span><b>Aiutante del postino</b><span>Edizione ${S.dati.edizione.anno} · grazie per aver aiutato Tullio con i premi! Il francobollo compare accanto al tuo nome in tutto il sito.</span></span></div>` : ""}
   <section class="pannello" style="max-width:560px"><h3>Dove consegnarti i premi</h3><p class="sub">Il personaggio e il mondo su cui ti consegneremo eventuali premi in gioco.</p>
     <form id="form-profilo">
       <div class="campo"><label for="pg">Nome del personaggio</label><input type="text" id="pg" maxlength="40" value="${esc(u.pg)}" placeholder="Nome Cognome" autocomplete="off"></div>
@@ -663,7 +665,7 @@ async function vAiutanti() {
       ${d.stato === "offerta" ? `<button class="btn quieto piccolo" data-act="mio-ritira" data-id="${d.id}">Ritira</button>` : ""}</div></div>`;
   }).join("")}</div>
     ${a.mie.some((d) => d.stato === "offerta") ? `<p class="aiuto" style="margin-top:10px">"Da consegnare": consegna il dono in gioco a uno degli admin. Quando lo riceviamo diventa "Ricevuta".</p>` : ""}</section>` : "";
-  const grazie = `<section class="pannello"><h3>Grazie a</h3>${a.aiutanti.length || a.anonimi ? `<ul class="grazie">${a.aiutanti.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>${a.anonimi ? `<p class="aiuto" style="margin-top:8px">e ${a.anonimi === 1 ? "un aiutante anonimo" : a.anonimi + " aiutanti anonimi"}</p>` : ""}` : `<p class="sub">Ancora nessun dono ricevuto. Il primo nome potrebbe essere il tuo!</p>`}</section>`;
+  const grazie = `<section class="pannello"><h3>Grazie a</h3>${a.aiutanti.length || a.anonimi ? `<ul class="grazie">${a.aiutanti.map((n) => `<li>${SEGNO()}${esc(n)}</li>`).join("")}</ul>${a.anonimi ? `<p class="aiuto" style="margin-top:8px">e ${a.anonimi === 1 ? "un aiutante anonimo" : a.anonimi + " aiutanti anonimi"}</p>` : ""}` : `<p class="sub">Ancora nessun dono ricevuto. Il primo nome potrebbe essere il tuo!</p>`}</section>`;
   v.innerHTML = `<div class="pagina-h"><span class="label">Edizione ${S.dati.edizione.anno}</span><h2>Gli aiutanti del postino</h2>
     ${paragrafi(a.intro).map((p) => `<p>${esc(p)}</p>`).join("")}</div>
     <div class="sotto" style="margin-top:0"><div style="display:grid;gap:24px">${modulo}${mie}</div>${grazie}</div>`;
@@ -1191,7 +1193,7 @@ async function vPosta() {
     ${posta.length ? `<p class="aiuto" id="conta-lette"></p>` : ""}</div>
   <div class="albero-scena"><div class="albero">${svgAlbero()}${buste}</div></div>
   ${posta.length ? `<details class="pannello tutte-lettere"><summary><b>Leggile tutte in fila</b></summary>
-    <ul class="posta-lista">${posta.map((x) => `<li><p>${esc(x.testo)}</p><span class="aiuto">${esc(x.nome)}</span></li>`).join("")}</ul></details>` : ""}
+    <ul class="posta-lista">${posta.map((x) => `<li><p>${esc(x.testo)}</p><span class="aiuto">${esc(x.nome)}${x.aiutante ? SEGNO() : ""}</span></li>`).join("")}</ul></details>` : ""}
   <dialog class="foglio-lettera" id="foglio-lettera" aria-labelledby="fl-chi">
     <div class="fl-carta">
       <span class="label" id="fl-num"></span>
@@ -1224,7 +1226,7 @@ function apriLettera(i) {
   const x = P.posta[i];
   $("#fl-num").textContent = `Lettera ${i + 1} di ${P.posta.length}`;
   $("#fl-testo").textContent = x.testo;
-  $("#fl-chi").textContent = x.nome;
+  $("#fl-chi").innerHTML = esc(x.nome) + (x.aiutante ? SEGNO() : "");
   const d = $("#foglio-lettera");
   if (!d.open) d.showModal();
   d.querySelector(".fl-carta").classList.remove("svela"); void d.offsetWidth; d.querySelector(".fl-carta").classList.add("svela");

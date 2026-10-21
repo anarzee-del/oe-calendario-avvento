@@ -102,7 +102,9 @@ export async function contaLettere(env, year) {
 export async function premiEstratti(env, year, n) {
   const assegn = (await assegnazioniPerGiorno(env, year)).get(n) || [];
   const { results: vinc } = await env.DB.prepare(
-    `SELECT v.id, v.assegnazione_id, v.user_id, v.consegnato, COALESCE(u.global_name, u.username) AS nome FROM vincite v JOIN users u ON u.id = v.user_id
+    `SELECT v.id, v.assegnazione_id, v.user_id, v.consegnato, COALESCE(u.global_name, u.username) AS nome,
+       EXISTS(SELECT 1 FROM donazioni d WHERE d.edition=v.edition AND d.user_id=v.user_id AND d.stato='ricevuta' AND d.anonimo=0) AS aiutante
+     FROM vincite v JOIN users u ON u.id = v.user_id
      WHERE v.edition=? AND v.giorno=? ORDER BY v.id`
   ).bind(year, n).all();
   return assegn.map((a) => ({
@@ -113,7 +115,7 @@ export async function premiEstratti(env, year, n) {
     immagine: a.img_ver ? `/api/img/premio/${a.id}?v=${a.img_ver}` : null,
     offerto: donatorePubblico(a).frase,
     posti: a.vincitori,
-    vincitori: vinc.filter((v) => v.assegnazione_id === a.a_id).map((v) => ({ id: v.user_id, nome: v.nome, vincita: v.id, consegnato: v.consegnato })),
+    vincitori: vinc.filter((v) => v.assegnazione_id === a.a_id).map((v) => ({ id: v.user_id, nome: v.nome, vincita: v.id, consegnato: v.consegnato, aiutante: !!v.aiutante })),
   }));
 }
 

@@ -27,7 +27,9 @@ export async function handleExtra(req, env, url, user, ed, oggi) {
     let posta = [];
     if (pubblici) {
       ({ results: posta } = await env.DB.prepare(
-        `SELECT m.testo, COALESCE(u.global_name, u.username) AS nome FROM messaggi m JOIN users u ON u.id = m.user_id
+        `SELECT m.testo, COALESCE(u.global_name, u.username) AS nome,
+           EXISTS(SELECT 1 FROM donazioni d WHERE d.edition=m.edition AND d.user_id=m.user_id AND d.stato='ricevuta' AND d.anonimo=0) AS aiutante
+         FROM messaggi m JOIN users u ON u.id = m.user_id
          WHERE m.edition=? AND m.stato='ok' ORDER BY m.created_at`
       ).bind(ed.year).all());
     }
