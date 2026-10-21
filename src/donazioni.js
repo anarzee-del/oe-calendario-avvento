@@ -1,4 +1,4 @@
-// Aiutanti del postino: offerte dei premi da parte della community e gestione dello staff.
+// Aiutanti del postino: offerte dei premi, categorie, immagini e assegnazione ai giorni.
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
@@ -8,11 +8,23 @@ const intIn = (v, min, max) => { const n = Number(v); return Number.isInteger(n)
 const STATI = new Set(["offerta", "ricevuta", "rifiutata"]);
 const MAX_OFFERTE_UTENTE = 20;
 const STAFF = "lo staff di Our Elysion";
+const MAX_IMG = 600_000;
+
+export const CATEGORIE = ["GIL", "Minion", "Mount", "Orchestrion roll", "Dye", "Glamour", "Fashion Accessories", "Emoticon"];
+
+// Totale disponibile di un dono: GIL per i GIL, copie per gli oggetti
+export const totaleDono = (d) => (d.tipo === "gil" ? Number(d.gil || 0) : Number(d.quantita || 0));
 
 export function etichettaPremio(d) {
   if (!d) return "";
   if (d.tipo === "gil") return `${Number(d.gil || 0).toLocaleString("it-IT")} GIL`;
   return `${d.descrizione || ""}${d.quantita > 1 ? ` ×${d.quantita}` : ""}`;
+}
+
+// Cosa riceve ciascun vincitore di un'assegnazione
+export function etichettaATesta(d, aTesta) {
+  if (d.tipo === "gil") return `${Number(aTesta || 0).toLocaleString("it-IT")} GIL`;
+  return `${d.descrizione || "Premio"}${aTesta > 1 ? ` ×${aTesta}` : ""}`;
 }
 
 // Come appare il donatore al pubblico
@@ -26,15 +38,26 @@ export function donatorePubblico(d) {
   return r;
 }
 
-// Premio assegnato a ciascun giorno (solo doni ricevuti)
-export async function premiPerGiorno(env, year) {
+// Assegnazioni (premi in palio) dell'edizione, raggruppate per giorno
+export async function assegnazioniPerGiorno(env, year) {
   const { results } = await env.DB.prepare(
-    `SELECT d.*, COALESCE(u.global_name, u.username) AS u_nome FROM donazioni d LEFT JOIN users u ON u.id = d.user_id
-     WHERE d.edition=? AND d.stato='ricevuta' AND d.giorno IS NOT NULL`
+    `SELECT d.*, a.id AS a_id, a.giorno AS giorno, a.vincitori, a.a_testa, COALESCE(u.global_name, u.username) AS u_nome
+     FROM assegnazioni a JOIN donazioni d ON d.id = a.donazione_id LEFT JOIN users u ON u.id = d.user_id
+     WHERE a.edition=? ORDER BY a.giorno, a.id`
   ).bind(year).all();
   const map = new Map();
-  for (const d of results) map.set(d.giorno, d);
+  for (const r of results) { if (!map.has(r.giorno)) map.set(r.giorno, []); map.get(r.giorno).push(r); }
   return map;
+}
+
+// Riassunto per categorie, da mostrare prima dell'estrazione: "Mount ×5"
+export function inPalio(assegnazioni = []) {
+  const m = new Map();
+  for (const a of assegnazioni) {
+    const c = a.categoria || (a.tipo === "gil" ? "GIL" : "Premio");
+    m.set(c, (m.get(c) || 0) + a.vincitori);
+  }
+  return [...m.entries()].map(([categoria, vincitori]) => ({ categoria, vincitori }));
 }
 
 export async function isAiutante(env, user, year) {
@@ -44,17 +67,23 @@ export async function isAiutante(env, user, year) {
 }
 
 function validaDono(b) {
-  const tipo = b?.tipo === "gil" ? "gil" : "oggetto";
-  if (tipo === "gil") {
+  const categoria = CATEGORIE.includes(b?.categoria) ? b.categoria : (b?.tipo === "gil" ? "GIL" : null);
+  if (!categoria) return { errore: "Scegli la categoria del premio" };
+  if (categoria === "GIL") {
     const gil = intIn(b.gil, 1, 999_999_999);
     if (!gil) return { errore: "Indica quanti GIL vuoi donare" };
-    return { tipo, gil, descrizione: null, quantita: 1 };
+    return { tipo: "gil", categoria, gil, descrizione: null, quantita: 1 };
   }
   const descrizione = str(b?.descrizione, 100);
-  if (!descrizione) return { errore: "Scrivi cosa vuoi donare" };
+  if (!descrizione) return { errore: "Scrivi il nome dell'oggetto" };
   const quantita = intIn(b?.quantita ?? 1, 1, 999);
   if (!quantita) return { errore: "La quantità deve essere tra 1 e 999" };
-  return { tipo, gil: null, descrizione, quantita };
+  return { tipo: "oggetto", categoria, gil: null, descrizione, quantita };
+}
+
+async function giorniEstratti(env, year) {
+  const { results } = await env.DB.prepare("SELECT giorno FROM estrazioni WHERE edition=?").bind(year).all();
+  return new Set(results.map((r) => r.giorno));
 }
 
 export async function handleDonazioni(req, env, url, user, ed, oggi) {
@@ -77,11 +106,11 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
     let mie = [];
     if (user) {
       ({ results: mie } = await env.DB.prepare(
-        "SELECT id,tipo,descrizione,quantita,gil,anonimo,nota,stato,created_at FROM donazioni WHERE edition=? AND user_id=? ORDER BY id DESC"
+        "SELECT id,tipo,categoria,descrizione,quantita,gil,anonimo,nota,stato,created_at FROM donazioni WHERE edition=? AND user_id=? ORDER BY id DESC"
       ).bind(ed.year, user.id).all());
       mie = mie.map((d) => ({ ...d, etichetta: etichettaPremio(d), anonimo: !!d.anonimo }));
     }
-    return json({ aperte, fino: ed.donazioni_fino, intro: ed.aiutanti_intro || "", aiutanti: nomi.map((x) => x.nome).filter(Boolean), anonimi: anon?.c || 0, mie });
+    return json({ aperte, fino: ed.donazioni_fino, intro: ed.aiutanti_intro || "", categorie: CATEGORIE, aiutanti: nomi.map((x) => x.nome).filter(Boolean), anonimi: anon?.c || 0, mie });
   }
 
   if (p === "/api/donazioni" && m === "POST") {
@@ -94,9 +123,9 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
     if (c.c >= MAX_OFFERTE_UTENTE) return err(400, "Hai già registrato molte offerte: scrivi allo staff per aggiungerne altre");
     const now = Date.now();
     await env.DB.prepare(
-      `INSERT INTO donazioni(edition,user_id,tipo,descrizione,quantita,gil,anonimo,nota,stato,created_at,updated_at)
-       VALUES(?,?,?,?,?,?,?,?,'offerta',?,?)`
-    ).bind(ed.year, user.id, v.tipo, v.descrizione, v.quantita, v.gil, b.anonimo ? 1 : 0, str(b.nota, 300), now, now).run();
+      `INSERT INTO donazioni(edition,user_id,tipo,categoria,descrizione,quantita,gil,anonimo,nota,stato,created_at,updated_at)
+       VALUES(?,?,?,?,?,?,?,?,?,'offerta',?,?)`
+    ).bind(ed.year, user.id, v.tipo, v.categoria, v.descrizione, v.quantita, v.gil, b.anonimo ? 1 : 0, str(b.nota, 300), now, now).run();
     return json({ ok: true });
   }
 
@@ -115,21 +144,40 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
     return json({ ok: true });
   }
 
+  // Immagine del premio: visibile allo staff, e a tutti dopo l'estrazione del giorno
+  if ((r = p.match(/^\/api\/img\/premio\/(\d+)$/)) && m === "GET") {
+    const id = Number(r[1]);
+    if (!isAdmin) {
+      const vis = await env.DB.prepare("SELECT 1 FROM vincite WHERE donazione_id=? LIMIT 1").bind(id).first();
+      if (!vis) return new Response("Forbidden", { status: 403 });
+    }
+    const img = await env.DB.prepare("SELECT mime,data FROM premio_img WHERE donazione_id=?").bind(id).first();
+    if (!img) return new Response("Not found", { status: 404 });
+    return new Response(new Uint8Array(img.data), { headers: { "Content-Type": img.mime, "Cache-Control": isAdmin ? "private, no-store" : "public, max-age=604800, immutable" } });
+  }
+
   /* ----- staff ----- */
-  if (!p.startsWith("/api/admin/donazion")) return null;
+  if (!p.startsWith("/api/admin/donazion") && !p.startsWith("/api/admin/assegnazion")) return null;
   if (!isAdmin) return err(403, "Area riservata allo staff");
+  const chi = user.global_name || user.username;
 
   if (p === "/api/admin/donazioni" && m === "GET") {
     const { results } = await env.DB.prepare(
       `SELECT d.*, COALESCE(u.global_name, u.username) AS u_nome, u.username AS u_username, u.pg AS u_pg, u.mondo AS u_mondo
        FROM donazioni d LEFT JOIN users u ON u.id = d.user_id WHERE d.edition=? ORDER BY d.id DESC`
     ).bind(ed.year).all();
+    const { results: ass } = await env.DB.prepare("SELECT * FROM assegnazioni WHERE edition=? ORDER BY giorno, id").bind(ed.year).all();
     const { results: utenti } = await env.DB.prepare(
       "SELECT id, COALESCE(global_name, username) AS nome FROM users ORDER BY nome COLLATE NOCASE"
     ).all();
+    const estratti = await giorniEstratti(env, ed.year);
     return json({
-      aperte, fino: ed.donazioni_fino,
-      donazioni: results.map((d) => ({ ...d, anonimo: !!d.anonimo, etichetta: etichettaPremio(d), pubblico: donatorePubblico(d).frase })),
+      aperte, fino: ed.donazioni_fino, categorie: CATEGORIE,
+      donazioni: results.map((d) => {
+        const mie = ass.filter((a) => a.donazione_id === d.id).map((a) => ({ ...a, etichetta: etichettaATesta(d, a.a_testa), estratto: estratti.has(a.giorno) }));
+        const usati = mie.reduce((s, a) => s + a.vincitori * a.a_testa, 0);
+        return { ...d, anonimo: !!d.anonimo, etichetta: etichettaPremio(d), pubblico: donatorePubblico(d).frase, assegnazioni: mie, totale: totaleDono(d), usati };
+      }),
       utenti,
     });
   }
@@ -146,41 +194,94 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
     } else nome = str(b.donatore_nome, 60) || null;
     const now = Date.now();
     await env.DB.prepare(
-      `INSERT INTO donazioni(edition,user_id,donatore_nome,tipo,descrizione,quantita,gil,anonimo,nota,stato,created_at,updated_at,gestita_da)
-       VALUES(?,?,?,?,?,?,?,?,?,'ricevuta',?,?,?)`
-    ).bind(ed.year, userId, nome, v.tipo, v.descrizione, v.quantita, v.gil, b.anonimo ? 1 : 0, str(b.nota, 300), now, now, user.global_name || user.username).run();
+      `INSERT INTO donazioni(edition,user_id,donatore_nome,tipo,categoria,descrizione,quantita,gil,anonimo,nota,stato,created_at,updated_at,gestita_da)
+       VALUES(?,?,?,?,?,?,?,?,?,?,'ricevuta',?,?,?)`
+    ).bind(ed.year, userId, nome, v.tipo, v.categoria, v.descrizione, v.quantita, v.gil, b.anonimo ? 1 : 0, str(b.nota, 300), now, now, chi).run();
     return json({ ok: true });
   }
 
-  if ((r = p.match(/^\/api\/admin\/donazione\/(\d+)$/))) {
-    const id = Number(r[1]);
+  if ((r = p.match(/^\/api\/admin\/assegnazione\/(\d+)$/)) && m === "DELETE") {
+    const a = await env.DB.prepare("SELECT * FROM assegnazioni WHERE id=? AND edition=?").bind(Number(r[1]), ed.year).first();
+    if (!a) return err(404, "Assegnazione non trovata");
+    if ((await giorniEstratti(env, ed.year)).has(a.giorno)) return err(400, "Il giorno è già stato estratto: ripeti l'estrazione dalla sezione Estrazioni se serve");
+    await env.DB.prepare("DELETE FROM assegnazioni WHERE id=?").bind(a.id).run();
+    return json({ ok: true });
+  }
+
+  if ((r = p.match(/^\/api\/admin\/donazione\/(\d+)(\/(assegna|immagine))?$/))) {
+    const id = Number(r[1]), sub = r[3];
     const d = await env.DB.prepare("SELECT * FROM donazioni WHERE id=? AND edition=?").bind(id, ed.year).first();
     if (!d) return err(404, "Dono non trovato");
-    if (m === "DELETE") {
-      await env.DB.prepare("DELETE FROM donazioni WHERE id=?").bind(id).run();
+    const { results: ass } = await env.DB.prepare("SELECT * FROM assegnazioni WHERE donazione_id=?").bind(id).all();
+
+    if (sub === "assegna" && m === "POST") {
+      if (d.stato !== "ricevuta") return err(400, "Si possono assegnare solo i doni ricevuti");
+      const b = (await req.json().catch(() => null)) || {};
+      const giorno = intIn(b.giorno, 1, 31), vincitori = intIn(b.vincitori, 1, 50), aTesta = intIn(b.a_testa, 1, 999_999_999);
+      if (!giorno || !vincitori || !aTesta) return err(400, "Indica giorno, numero di vincitori e quanto riceve ciascuno");
+      if ((await giorniEstratti(env, ed.year)).has(giorno)) return err(400, "Quel giorno è già stato estratto");
+      const usati = ass.reduce((s, a) => s + a.vincitori * a.a_testa, 0);
+      const resto = totaleDono(d) - usati;
+      if (vincitori * aTesta > resto) {
+        return err(400, d.tipo === "gil"
+          ? `Restano ${resto.toLocaleString("it-IT")} GIL da assegnare per questo dono`
+          : `Restano ${resto} copie da assegnare per questo dono`);
+      }
+      await env.DB.prepare("INSERT INTO assegnazioni(edition,giorno,donazione_id,vincitori,a_testa,created_at) VALUES(?,?,?,?,?,?)")
+        .bind(ed.year, giorno, id, vincitori, aTesta, Date.now()).run();
       return json({ ok: true });
     }
-    if (m === "PUT") {
+
+    if (sub === "immagine") {
+      if (m === "DELETE") {
+        await env.DB.batch([
+          env.DB.prepare("DELETE FROM premio_img WHERE donazione_id=?").bind(id),
+          env.DB.prepare("UPDATE donazioni SET img_ver=0 WHERE id=?").bind(id),
+        ]);
+        return json({ ok: true });
+      }
+      if (m === "PUT") {
+        const form = await req.formData().catch(() => null);
+        const f = form?.get("img");
+        if (!f || typeof f.arrayBuffer !== "function" || !/^image\/(webp|jpeg|png)$/.test(f.type) || f.size > MAX_IMG) return err(400, "Immagine non valida o troppo pesante");
+        await env.DB.batch([
+          env.DB.prepare("INSERT INTO premio_img(donazione_id,mime,data) VALUES(?,?,?) ON CONFLICT(donazione_id) DO UPDATE SET mime=excluded.mime, data=excluded.data")
+            .bind(id, f.type, await f.arrayBuffer()),
+          env.DB.prepare("UPDATE donazioni SET img_ver=img_ver+1 WHERE id=?").bind(id),
+        ]);
+        return json({ ok: true });
+      }
+    }
+
+    if (!sub && m === "DELETE") {
+      const vinto = await env.DB.prepare("SELECT 1 FROM vincite WHERE donazione_id=? LIMIT 1").bind(id).first();
+      if (vinto) return err(400, "Questo dono è già stato vinto: non si può eliminare");
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM assegnazioni WHERE donazione_id=?").bind(id),
+        env.DB.prepare("DELETE FROM premio_img WHERE donazione_id=?").bind(id),
+        env.DB.prepare("DELETE FROM donazioni WHERE id=?").bind(id),
+      ]);
+      return json({ ok: true });
+    }
+
+    if (!sub && m === "PUT") {
       const b = (await req.json().catch(() => null)) || {};
       const stato = STATI.has(b.stato) ? b.stato : d.stato;
-      let giorno = "giorno" in b ? (b.giorno === null || b.giorno === "" ? null : intIn(b.giorno, 1, 31)) : d.giorno;
-      if ("giorno" in b && b.giorno !== null && b.giorno !== "" && giorno === null) return err(400, "Giorno non valido");
-      if (stato !== "ricevuta") giorno = null;
-      let campi = { tipo: d.tipo, descrizione: d.descrizione, quantita: d.quantita, gil: d.gil };
-      if ("descrizione" in b || "gil" in b || "tipo" in b) {
+      if (stato !== "ricevuta" && ass.length) return err(400, "Prima togli il dono dai giorni a cui è assegnato");
+      let campi = { tipo: d.tipo, categoria: d.categoria, descrizione: d.descrizione, quantita: d.quantita, gil: d.gil };
+      if (["descrizione", "gil", "categoria", "quantita"].some((k) => k in b)) {
         const v = validaDono({ ...d, ...b });
         if (v.errore) return err(400, v.errore);
+        const usati = ass.reduce((s, a) => s + a.vincitori * a.a_testa, 0);
+        if (totaleDono(v) < usati) return err(400, "La nuova quantità è minore di quella già assegnata ai giorni");
+        if (ass.length && v.tipo !== d.tipo) return err(400, "Prima togli il dono dai giorni a cui è assegnato");
         campi = v;
       }
       const anonimo = "anonimo" in b ? (b.anonimo ? 1 : 0) : d.anonimo;
-      const stmts = [];
-      if (giorno !== null) {
-        stmts.push(env.DB.prepare("UPDATE donazioni SET giorno=NULL WHERE edition=? AND giorno=? AND id<>?").bind(ed.year, giorno, id));
-      }
-      stmts.push(env.DB.prepare(
-        "UPDATE donazioni SET stato=?, giorno=?, tipo=?, descrizione=?, quantita=?, gil=?, anonimo=?, updated_at=?, gestita_da=? WHERE id=?"
-      ).bind(stato, giorno, campi.tipo, campi.descrizione, campi.quantita, campi.gil, anonimo, Date.now(), user.global_name || user.username, id));
-      await env.DB.batch(stmts);
+      const dettagli = "dettagli" in b ? str(b.dettagli, 600) : d.dettagli;
+      await env.DB.prepare(
+        "UPDATE donazioni SET stato=?, tipo=?, categoria=?, descrizione=?, quantita=?, gil=?, anonimo=?, dettagli=?, updated_at=?, gestita_da=? WHERE id=?"
+      ).bind(stato, campi.tipo, campi.categoria, campi.descrizione, campi.quantita, campi.gil, anonimo, dettagli, Date.now(), chi, id).run();
       return json({ ok: true });
     }
   }

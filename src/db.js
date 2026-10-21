@@ -1,6 +1,6 @@
 // Schema del database e dati iniziali. Lo schema si crea da solo alla prima richiesta.
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 // Ogni versione contiene solo le modifiche rispetto alla precedente.
 const V1 = [
@@ -65,7 +65,44 @@ Compila il modulo qui sotto, poi consegna il dono in gioco a uno degli admin (Al
 A dicembre, sotto il premio del giorno, comparirà il tuo nome, oppure "un aiutante anonimo" se preferisci. Sul tuo profilo comparirà il segno di Aiutante. È Natale: il grazie è tutto per te.' WHERE aiutanti_intro IS NULL`,
 ];
 
-const MIGRATIONS = { 1: V1, 2: V2 };
+// v3: categorie e immagini dei premi, assegnazioni multiple, partecipazioni, vincite, estrazioni, regole
+const V3 = [
+  `ALTER TABLE donazioni ADD COLUMN categoria TEXT`,
+  `ALTER TABLE donazioni ADD COLUMN dettagli TEXT`,
+  `ALTER TABLE donazioni ADD COLUMN img_ver INTEGER NOT NULL DEFAULT 0`,
+  `UPDATE donazioni SET categoria='GIL' WHERE tipo='gil'`,
+  `CREATE TABLE IF NOT EXISTS assegnazioni (
+     id INTEGER PRIMARY KEY AUTOINCREMENT, edition INTEGER NOT NULL, giorno INTEGER NOT NULL,
+     donazione_id INTEGER NOT NULL, vincitori INTEGER NOT NULL DEFAULT 1, a_testa INTEGER NOT NULL DEFAULT 1,
+     created_at INTEGER)`,
+  `CREATE INDEX IF NOT EXISTS assegnazioni_giorno ON assegnazioni(edition, giorno)`,
+  `INSERT INTO assegnazioni(edition,giorno,donazione_id,vincitori,a_testa,created_at)
+     SELECT edition, giorno, id, 1, CASE WHEN tipo='gil' THEN gil ELSE quantita END, updated_at
+     FROM donazioni WHERE giorno IS NOT NULL AND stato='ricevuta'`,
+  `UPDATE donazioni SET giorno=NULL`,
+  `CREATE TABLE IF NOT EXISTS premio_img (donazione_id INTEGER PRIMARY KEY, mime TEXT NOT NULL, data BLOB NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS partecipazioni (
+     edition INTEGER NOT NULL, giorno INTEGER NOT NULL, user_id TEXT NOT NULL,
+     risposta INTEGER, created_at INTEGER, PRIMARY KEY (edition, giorno, user_id))`,
+  `CREATE INDEX IF NOT EXISTS partecipazioni_user ON partecipazioni(edition, user_id)`,
+  `CREATE TABLE IF NOT EXISTS vincite (
+     id INTEGER PRIMARY KEY AUTOINCREMENT, edition INTEGER NOT NULL, giorno INTEGER NOT NULL,
+     assegnazione_id INTEGER NOT NULL, donazione_id INTEGER NOT NULL, user_id TEXT NOT NULL,
+     a_testa INTEGER NOT NULL DEFAULT 1,
+     consegnato INTEGER NOT NULL DEFAULT 0, consegnato_at INTEGER, consegnato_da TEXT, nota TEXT,
+     created_at INTEGER)`,
+  `CREATE INDEX IF NOT EXISTS vincite_user ON vincite(edition, user_id)`,
+  `CREATE INDEX IF NOT EXISTS vincite_giorno ON vincite(edition, giorno)`,
+  `CREATE TABLE IF NOT EXISTS estrazioni (
+     edition INTEGER NOT NULL, giorno INTEGER NOT NULL, eseguita_at INTEGER, eseguita_da TEXT,
+     partecipanti INTEGER, log TEXT, PRIMARY KEY (edition, giorno))`,
+  `ALTER TABLE editions ADD COLUMN tetto INTEGER NOT NULL DEFAULT 5`,
+  `ALTER TABLE editions ADD COLUMN biglietti_sfida INTEGER NOT NULL DEFAULT 3`,
+  `ALTER TABLE editions ADD COLUMN biscotti_partecipazione INTEGER NOT NULL DEFAULT 20`,
+  `UPDATE editions SET donazioni_fino='2026-11-27' WHERE year=2026 AND donazioni_fino='2026-11-30'`,
+];
+
+const MIGRATIONS = { 1: V1, 2: V2, 3: V3 };
 
 const COME_FUNZIONA_2026 = `Ogni giorno alle 00:00 si apre una busta con un nuovo capitolo della storia.
 

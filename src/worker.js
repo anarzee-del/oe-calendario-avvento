@@ -2,7 +2,8 @@
 import { ensureSchema, currentEdition } from "./db.js";
 import { handleAuth, currentUser } from "./auth.js";
 import { romeNow, editionDays, dayState, weekday, isIsoDate } from "./time.js";
-import { handleDonazioni, premiPerGiorno, etichettaPremio, donatorePubblico, isAiutante } from "./donazioni.js";
+import { handleDonazioni, assegnazioniPerGiorno, inPalio, isAiutante } from "./donazioni.js";
+import { handleGioco, estraiArretrati, giorniEstratti, contaLettere, premiEstratti } from "./gioco.js";
 
 const JSONH = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: JSONH });
@@ -13,7 +14,16 @@ const MAX_THUMB = 200_000; // byte, francobollo
 const FUOCHI = new Set(["sinistra", "centro", "destra"]);
 
 export default {
-  async fetch(req, env) {
+  // Estrazione automatica: il cron gira alle 22:00 e alle 23:00 UTC, cioè sempre a mezzanotte italiana
+  // (ora solare o legale); la funzione estrae tutti i giorni già chiusi e non ancora estratti.
+  async scheduled(event, env, ctx) {
+    await ensureSchema(env);
+    const ed = await currentEdition(env);
+    const res = await estraiArretrati(env, ed);
+    if (res.length) console.log("Estrazioni eseguite", JSON.stringify(res));
+  },
+
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
     try {
       await ensureSchema(env);
@@ -25,7 +35,7 @@ export default {
         if (origin && origin !== url.origin && env.DEV_LOGIN !== "1") return err(403, "Richiesta non consentita");
       }
       const user = await currentUser(req, env);
-      return await route(req, env, url, user);
+      return await route(req, env, url, user, ctx);
     } catch (e) {
       console.error(e);
       return err(500, "Errore interno, riprova tra poco");
@@ -36,10 +46,16 @@ export default {
 /* ---------- utilità ---------- */
 
 // "Oggi" in ora italiana. Gli admin possono simulare un'altra data per l'anteprima.
-function today(url, user) {
+function today(url, user, env) {
   const sim = url.searchParams.get("simula");
-  if (user?.role === "admin" && isIsoDate(sim)) return sim;
+  if ((user?.role === "admin" || env?.DEV_LOGIN === "1") && isIsoDate(sim)) return sim;
   return romeNow().date;
+}
+
+// Data vera (in sviluppo locale si può simulare anche questa, per provare partecipazioni ed estrazioni)
+function oggiReale(url, env) {
+  const sim = url.searchParams.get("simula");
+  return env.DEV_LOGIN === "1" && isIsoDate(sim) ? sim : romeNow().date;
 }
 
 function publicEdition(ed) {
@@ -49,6 +65,7 @@ function publicEdition(ed) {
     come_funziona: ed.come_funziona, regolamento: ed.regolamento,
     tappe: JSON.parse(ed.tappe || "[]"),
     donazioni_fino: ed.donazioni_fino, aiutanti_intro: ed.aiutanti_intro || "",
+    tetto: ed.tetto, biglietti_sfida: ed.biglietti_sfida, biscotti_partecipazione: ed.biscotti_partecipazione,
   };
 }
 
@@ -69,16 +86,18 @@ const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 /* ---------- router ---------- */
 
-async function route(req, env, url, user) {
+async function route(req, env, url, user, ctx) {
   const p = url.pathname;
   const m = req.method;
   const ed = await currentEdition(env);
   const isAdmin = user?.role === "admin";
 
-  if (p === "/api/stato" && m === "GET") return stato(env, url, user, ed);
+  if (p === "/api/stato" && m === "GET") return stato(env, url, user, ed, ctx);
 
-  const dr = await handleDonazioni(req, env, url, user, ed, today(url, user));
+  const dr = await handleDonazioni(req, env, url, user, ed, today(url, user, env));
   if (dr) return dr;
+  const gr = await handleGioco(req, env, url, user, ed, user?.role === "admin" ? oggiReale(url, env) : today(url, user, env), oggiReale(url, env));
+  if (gr) return gr;
 
   let r;
   if ((r = p.match(/^\/api\/giorno\/(\d{1,2})$/)) && m === "GET") return giorno(env, url, user, ed, Number(r[1]));
@@ -103,12 +122,11 @@ async function route(req, env, url, user) {
         "SELECT edition,n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,stato_capitolo,img_ver,updated_at,updated_by FROM days WHERE edition=? ORDER BY n"
       ).bind(ed.year).all();
       const days = editionDays(ed);
-      const premi = await premiPerGiorno(env, ed.year);
+      const premi = await assegnazioniPerGiorno(env, ed.year);
       return json({
         giorni: days.map((d) => {
           const row = results.find((x) => x.n === d.n) || { n: d.n };
-          const pr = premi.get(d.n);
-          return { ...row, data: d.data, wd: weekday(d.data), risposte: JSON.parse(row.risposte || "[]"), premio: pr ? etichettaPremio(pr) : "", premio_da: pr ? donatorePubblico(pr).frase : "" };
+          return { ...row, data: d.data, wd: weekday(d.data), risposte: JSON.parse(row.risposte || "[]"), in_palio: inPalio(premi.get(d.n)) };
         }),
       });
     }
@@ -182,16 +200,20 @@ async function route(req, env, url, user) {
       const count = Math.round((new Date(b.fine) - new Date(b.inizio)) / 86400000) + 1;
       if (count > 31) return err(400, "Il calendario può durare al massimo 31 giorni");
       if (b.consegna_a < b.consegna_da) return err(400, "Controlla le date di consegna");
+      const tetto = Math.max(1, Math.min(25, Number(b.tetto) | 0 || ed.tetto || 5));
+      const biglietti = Math.max(1, Math.min(10, Number(b.biglietti_sfida) | 0 || ed.biglietti_sfida || 3));
+      const biscotti = Math.max(0, Math.min(10000, Number.isFinite(Number(b.biscotti_partecipazione)) ? Number(b.biscotti_partecipazione) | 0 : ed.biscotti_partecipazione));
       const tappe = Array.isArray(b.tappe)
         ? b.tappe.slice(0, 5).map((t) => ({ s: Math.max(1, Math.min(100000, Number(t.s) | 0)), b: Math.max(0, Math.min(100000, Number(t.b) | 0)) }))
           .sort((a, c) => a.s - c.s)
         : [];
       const stmts = [env.DB.prepare(
         `UPDATE editions SET inizio=?, fine=?, consegna_da=?, consegna_a=?, titolo=?, sottotitolo=?, intro=?,
-         come_funziona=?, regolamento=?, tappe=?, donazioni_fino=?, aiutanti_intro=? WHERE year=?`
+         come_funziona=?, regolamento=?, tappe=?, donazioni_fino=?, aiutanti_intro=?,
+         tetto=?, biglietti_sfida=?, biscotti_partecipazione=? WHERE year=?`
       ).bind(b.inizio, b.fine, b.consegna_da, b.consegna_a, str(b.titolo, 80), str(b.sottotitolo, 120),
         str(b.intro, 600), str(b.come_funziona, 4000), str(b.regolamento, 12000), JSON.stringify(tappe),
-        b.donazioni_fino, str(b.aiutanti_intro, 3000), ed.year)];
+        b.donazioni_fino, str(b.aiutanti_intro, 3000), tetto, biglietti, biscotti, ed.year)];
       for (let n = 1; n <= count; n++) {
         stmts.push(env.DB.prepare("INSERT OR IGNORE INTO days(edition,n,titolo) VALUES(?,?,?)").bind(ed.year, n, `Capitolo ${n}`));
       }
@@ -205,8 +227,19 @@ async function route(req, env, url, user) {
 
 /* ---------- pubblico ---------- */
 
-async function stato(env, url, user, ed) {
-  const oggi = today(url, user);
+async function stato(env, url, user, ed, ctx) {
+  const oggi = today(url, user, env);
+  // Rete di sicurezza: se il cron di mezzanotte non fosse partito, l'estrazione parte alla prima visita
+  const reale = oggiReale(url, env);
+  if (reale > ed.inizio && ctx?.waitUntil) {
+    const fatti = await giorniEstratti(env, ed.year);
+    if (editionDays(ed).some((d) => d.data < reale && !fatti.has(d.n))) ctx.waitUntil(estraiArretrati(env, ed, reale).catch((e) => console.error(e)));
+  }
+  let miei = new Set();
+  if (user) {
+    const { results } = await env.DB.prepare("SELECT giorno FROM partecipazioni WHERE edition=? AND user_id=?").bind(ed.year, user.id).all();
+    miei = new Set(results.map((x) => x.giorno));
+  }
   const isAdmin = user?.role === "admin";
   const days = editionDays(ed);
   const prima = oggi < ed.inizio;
@@ -221,7 +254,7 @@ async function stato(env, url, user, ed) {
     const row = results.find((x) => x.n === d.n) || {};
     const st = dayState(d.data, oggi);
     const visibile = st !== "sigillata" || isAdmin;
-    const out = { n: d.n, data: d.data, wd: weekday(d.data), stato: st, tipo: row.tipo || "sorteggio", etichetta: row.etichetta || "" };
+    const out = { n: d.n, data: d.data, wd: weekday(d.data), stato: st, tipo: row.tipo || "sorteggio", etichetta: row.etichetta || "", partecipato: miei.has(d.n) };
     if (visibile) {
       out.titolo = row.titolo || "";
       out.fuoco = row.fuoco || "centro";
@@ -237,7 +270,7 @@ async function stato(env, url, user, ed) {
     oggi, prima, dopo, chiuso,
     simulata: isAdmin && oggi !== romeNow().date,
     giorni,
-    lettere: 0, // le partecipazioni arrivano nella prossima versione
+    lettere: await contaLettere(env, ed.year),
   });
 }
 
@@ -246,7 +279,7 @@ async function giorno(env, url, user, ed, n) {
   const d = days[n - 1];
   if (!d) return err(404, "Casella inesistente");
   const isAdmin = user?.role === "admin";
-  const oggi = today(url, user);
+  const oggi = today(url, user, env);
   const st = dayState(d.data, oggi);
   if ((st === "sigillata" || oggi < ed.inizio) && !isAdmin) return err(403, "Questa busta è ancora sigillata");
   const row = await env.DB.prepare(
@@ -255,11 +288,16 @@ async function giorno(env, url, user, ed, n) {
   const out = {
     n, data: d.data, wd: weekday(d.data), stato: st,
     tipo: row.tipo || "sorteggio", etichetta: row.etichetta || "", titolo: row.titolo || "", testo: row.testo || "",
-    premio: "", premio_da: null, fuoco: row.fuoco || "centro",
+    fuoco: row.fuoco || "centro",
     immagine: row.img_ver ? `/api/img/${n}/full?v=${row.img_ver}` : null,
   };
-  const pr = (await premiPerGiorno(env, ed.year)).get(n);
-  if (pr) { out.premio = etichettaPremio(pr); out.premio_da = donatorePubblico(pr); }
+  out.in_palio = inPalio((await assegnazioniPerGiorno(env, ed.year)).get(n));
+  out.estratta = (await giorniEstratti(env, ed.year)).has(n);
+  if (out.estratta) out.premi = await premiEstratti(env, ed.year, n);
+  if (user) {
+    const mia = await env.DB.prepare("SELECT risposta FROM partecipazioni WHERE edition=? AND giorno=? AND user_id=?").bind(ed.year, n, user.id).first();
+    out.mia = mia ? { partecipato: true, risposta: mia.risposta } : { partecipato: false };
+  }
   if (out.tipo === "sfida") {
     out.domanda = row.domanda || "";
     out.risposte = JSON.parse(row.risposte || "[]");

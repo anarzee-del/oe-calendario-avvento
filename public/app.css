@@ -69,3 +69,44 @@ details.pannello summary{cursor:pointer;display:flex;gap:8px;flex-wrap:wrap;alig
 .pagina-h p + p{margin-top:2px}
 #vista:focus{outline:none}
 #form-dono fieldset{display:grid;gap:8px}
+.pannello-gioco{display:grid;gap:14px}
+.in-palio{display:grid;gap:6px}
+.in-palio > b{font-family:var(--f-display);font-size:28px;line-height:1.05}
+.palio{display:flex;flex-wrap:wrap;gap:6px}
+.chip-palio{background:var(--ice);border-radius:999px;padding:6px 12px;font-family:var(--f-label);font-weight:600;font-size:14px}
+.domanda{font-size:18px;margin-top:6px;font-weight:600}
+.premi{display:grid;gap:12px}
+.premio-card{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg)}
+.premio-card:not(:has(img)){grid-template-columns:minmax(0,1fr)}
+.premio-card img{width:96px;height:96px;object-fit:cover;border-radius:6px;background:var(--ice)}
+.premio-card.mio{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.pc-t{display:grid;gap:4px;min-width:0}
+.pc-t b{font-family:var(--f-display);font-size:22px;line-height:1.1;overflow-wrap:anywhere}
+.pc-t p{font-size:15px}
+.vincitori{list-style:none;padding:0;margin:6px 0 0;display:flex;flex-wrap:wrap;gap:6px}
+.vincitori li{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-family:var(--f-label);font-weight:600;font-size:13px}
+.vincitori li.io{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.vincitori li.nessuno{font-weight:400;color:var(--muted)}
+.avviso.vinto{margin:0;border-color:var(--accent)}
+.barra-partecipa{display:none}
+@media (max-width:900px){
+  .barra-partecipa{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:15;justify-content:center;background:var(--surface);border-top:1px solid var(--line);
+    padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+  .barra-partecipa .btn{width:100%;justify-content:center;max-width:480px}
+  .barra-partecipa[hidden]{display:none!important}
+}
+.albo{display:grid;gap:28px}
+.albo-giorno h3{font-size:26px;margin-bottom:10px;display:flex;gap:10px;align-items:baseline}
+.albo-giorno h3 a{color:inherit;text-decoration:none}
+.dono-extra summary{cursor:pointer;font-family:var(--f-label);font-weight:600;font-size:14px;color:var(--primary)}
+.dono-media{display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;margin-top:10px}
+@media (max-width:520px){.dono-media{grid-template-columns:minmax(0,1fr)}}
+.dono-img{width:120px;height:120px;border-radius:6px;background:var(--ice);display:grid;place-items:center;overflow:hidden;text-align:center}
+.dono-img img{width:100%;height:100%;object-fit:cover}
+.assegna{display:grid;gap:8px;border-top:1px dashed var(--line);padding-top:10px}
+.ass-lista{list-style:none;padding:0;margin:0;display:grid;gap:6px;font-family:var(--f-label);font-size:14px}
+.ass-lista li{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.form-assegna{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1.2fr) auto;gap:8px;align-items:end}
+.form-assegna .campo{margin:0}
+.form-assegna input,.form-assegna select{padding:6px 8px;font-size:14px}
+@media (max-width:640px){.form-assegna{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.form-assegna .campo:first-child{grid-column:1/-1}}

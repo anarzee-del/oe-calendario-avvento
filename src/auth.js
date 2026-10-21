@@ -138,8 +138,9 @@ export async function handleAuth(req, env, url) {
 
   // Accesso di prova: SOLO in locale e solo se abilitato nel file .dev.vars
   if (path === "/api/auth/dev" && env.DEV_LOGIN === "1") {
-    const as = url.searchParams.get("as") === "admin" ? [...adminIds(env)][0] : "100000000000000001";
-    const fake = { id: as, username: as === "100000000000000001" ? "giocatore.prova" : "admin.prova", global_name: null };
+    const k = Math.max(1, Math.min(99, Number(url.searchParams.get("id")) || 1));
+    const as = url.searchParams.get("as") === "admin" ? [...adminIds(env)][0] : "1000000000000000" + String(k).padStart(2, "0");
+    const fake = { id: as, username: url.searchParams.get("as") === "admin" ? "admin.prova" : (k === 1 ? "giocatore.prova" : `giocatore.${k}`), global_name: null };
     await upsertUser(env, fake);
     return redirect("/", { "Set-Cookie": await startSession(env, fake, local) });
   }

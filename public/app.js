@@ -68,7 +68,9 @@ function renderTesta() {
   $("#footer-consegne").textContent = `Le consegne dei premi avvengono in gioco dal ${dataLunga(ed.consegna_da)} al ${dataLunga(ed.consegna_a)}.`;
   document.title = (ed.titolo ? ed.titolo + " · " : "") + "Avvento Our Elysion";
 
-  const voci = [["calendario", "Calendario"], ["aiutanti", "Aiutanti"], ["regolamento", "Regolamento"]];
+  const voci = [["calendario", "Calendario"], ["aiutanti", "Aiutanti"]];
+  if (!S.dati.chiuso && !S.dati.prima) voci.push(["albo", "Albo"]);
+  voci.push(["regolamento", "Regolamento"]);
   if (connesso()) voci.push(["profilo", "Il mio profilo"]);
   if (admin()) voci.push(["staff", "Area staff"]);
   const attiva = S.vista === "casella" ? "calendario" : S.vista;
@@ -103,10 +105,11 @@ function renderTesta() {
 function busta(g) {
   const st = g.stato;
   const fb = st !== "sigillata" && g.francobollo ? g.francobollo : (admin() && g.francobollo ? g.francobollo : null);
+  const part = connesso() && g.partecipato && st !== "sigillata";
   const cls = ["busta", st === "oggi" ? "oggi" : st === "passata" ? "aperta" : "sigillata", g.n === S.dati.giorni.length ? "natale" : "", fb ? "con-fb" : ""].join(" ");
   let nota = "";
   if (st === "sigillata") { const k = giorniTra(S.dati.oggi, g.data); nota = k === 1 ? "domani" : `tra ${k} giorni`; }
-  const lab = `Casella ${g.n}, ${GG_LUNGO[g.wd]} ${dataLunga(g.data)}${g.etichetta ? ", " + g.etichetta : ""}${g.tipo === "sfida" ? ", giorno di sfida" : ""}, ${st === "oggi" ? "aperta oggi" : st === "passata" ? "già aperta" : "ancora sigillata"}`;
+  const lab = `Casella ${g.n}, ${GG_LUNGO[g.wd]} ${dataLunga(g.data)}${g.etichetta ? ", " + g.etichetta : ""}${g.tipo === "sfida" ? ", giorno di sfida" : ""}, ${st === "oggi" ? "aperta oggi" : st === "passata" ? "già aperta" : "ancora sigillata"}${part ? ", hai partecipato" : ""}`;
   return `<a class="${cls}" href="#casella-${g.n}" aria-label="${esc(lab)}">
     <svg class="forma" viewBox="0 0 100 75" preserveAspectRatio="none" aria-hidden="true">
       ${st === "passata" ? '<rect class="foglio" x="14" y="6" width="72" height="40" rx="1"/>' : ""}
@@ -116,8 +119,9 @@ function busta(g) {
     ${g.tipo === "sfida" ? `<span class="nastro">${esc(g.etichetta || "Sfida")}</span>` : ""}
     ${fb ? `<span class="fb" aria-hidden="true"><span class="fb-in" style="display:block"><img src="${esc(fb)}" alt="" loading="lazy"></span></span>` : ""}
     <span class="gg">${GG[g.wd]}</span>
-    ${st === "oggi" ? `<span class="sigillo" aria-hidden="true">${ICO.fiocco}</span>` : ""}
+    ${st === "oggi" && !part ? `<span class="sigillo" aria-hidden="true">${ICO.fiocco}</span>` : ""}
     <span class="n num">${g.n}</span>
+    ${part ? `<span class="spunta" aria-hidden="true">${ICO.spunta}</span>` : ""}
     ${st === "sigillata" ? ICO.lucchetto + `<span class="nota" style="right:calc(7% + 20px)">${nota}</span>` : ""}
   </a>`;
 }
@@ -152,7 +156,7 @@ function vCalendario() {
   const mese = new Date(d.edizione.inizio + "T12:00:00Z").toLocaleDateString("it-IT", { month: "long", year: "numeric", timeZone: "UTC" });
   return `${avviso}
   <div class="cal-head"><h2 style="text-transform:capitalize">${esc(mese)}</h2>
-    <div class="legenda"><span><i class="dot" style="background:var(--accent)"></i>Oggi</span><span><i class="dot" style="background:var(--primary)"></i>Giorno di sfida</span></div></div>
+    <div class="legenda"><span><i class="dot" style="background:var(--accent)"></i>Oggi</span><span><i class="dot" style="background:var(--primary)"></i>Giorno di sfida</span>${connesso() ? `<span><i class="dot" style="background:var(--ok)"></i>Hai partecipato</span>` : ""}</div></div>
   <div class="griglia">${d.giorni.map(busta).join("")}</div>
   <div class="sotto">${pannelloCome()}
     <section class="pannello"><h3>Un messaggio per la community</h3><p class="sub">Presto potrai lasciare un messaggio a Tullio: da buon portavoce di Our Elysion, lo consegnerà a tutta la community.</p></section>
@@ -171,16 +175,10 @@ async function vCasella(n) {
       <h2>Questa busta è ancora sigillata</h2><p style="color:var(--muted)">${info ? `Si apre ${giorniTra(S.dati.oggi, info.data) === 1 ? "domani" : "tra " + giorniTra(S.dati.oggi, info.data) + " giorni"} a mezzanotte.` : esc(e.message)}</p></div>`;
     return;
   }
+  if (S.vista !== "casella" || S.giorno !== n) return;
+  S.casella = g;
   const testo = paragrafi(g.testo);
   const anteprima = g.stato === "sigillata" ? `<div class="avviso"><span class="stato warn">Anteprima staff</span><p>Questa busta è ancora sigillata per i giocatori: la vedi solo tu.</p></div>` : "";
-  let azione = `<div class="pannello" style="display:grid;gap:14px">`;
-  if (g.premio) azione += `<div class="premio"><span class="label">Premio del giorno</span><b>${esc(g.premio)}</b>${g.premio_da ? `<span class="aiuto">${esc(g.premio_da.frase)}</span>` : ""}</div>`;
-  if (g.tipo === "sfida") {
-    azione += `<div><span class="label" style="color:var(--primary)">Sfida${g.etichetta ? " di " + esc(g.etichetta) : ""}</span>
-      <p style="font-size:18px;margin-top:6px;font-weight:600">${esc(g.domanda || "La domanda della sfida comparirà qui.")}</p>
-      <div class="scelte">${(g.risposte || []).filter(Boolean).map((r, i) => `<div class="scelta" style="cursor:default">${g.giusta === i ? ICO.spunta : ""} ${esc(r)}</div>`).join("")}</div></div>`;
-  }
-  azione += `<p class="prossimamente">Le partecipazioni e le estrazioni arrivano con il prossimo aggiornamento del sito.</p></div>`;
   v.innerHTML = `<a class="indietro" href="#calendario">← Torna al calendario</a>${anteprima}
   <div class="casella">
     <article class="capitolo">
@@ -189,8 +187,77 @@ async function vCasella(n) {
       ${g.immagine ? `<img class="illustrazione" src="${esc(g.immagine)}" alt="Immagine del capitolo ${g.n}">` : ""}
       <div class="storia">${testo.length ? testo.map((p) => `<p>${esc(p)}</p>`).join("") : `<p class="vuoto">Il testo di questo capitolo non è ancora stato scritto.</p>`}</div>
     </article>
-    <aside class="azione">${azione}</aside>
+    <aside class="azione">${pannelloGioco(g)}</aside>
+  </div>
+  ${puoPartecipare(g) ? `<div class="barra-partecipa" id="barra-partecipa"><button class="btn grande" data-act="vai-azione">${g.tipo === "sfida" ? "Rispondi alla sfida" : "Partecipa all'estrazione"}</button></div>` : ""}`;
+  osservaBarra();
+}
+
+const puoPartecipare = (g) => { const u = S.dati.utente; return !!u && u.ruolo !== "admin" && !!u.pg && g.stato === "oggi" && !g.estratta && !g.mia?.partecipato; };
+
+function osservaBarra() {
+  const bar = $("#barra-partecipa"), box = $("#azione");
+  if (!bar || !box || !("IntersectionObserver" in window)) return;
+  new IntersectionObserver(([e]) => { bar.hidden = e.isIntersecting; }).observe(box);
+}
+
+function chipsPalio(list) {
+  return list?.length ? `<div class="palio">${list.map((c) => `<span class="chip-palio">${esc(c.categoria)}${c.vincitori > 1 ? ` <b>×${c.vincitori}</b>` : ""}</span>`).join("")}</div>` : "";
+}
+
+function domandaSfida(g, interattiva) {
+  const ris = (g.risposte || []).map((r, i) => [r, i]).filter(([r]) => r);
+  return `<div><span class="label" style="color:var(--primary)">Sfida${g.etichetta ? " di " + esc(g.etichetta) : ""} · ${S.dati.edizione.biglietti_sfida} biglietti se giusta</span>
+    <p class="domanda">${esc(g.domanda || "La domanda della sfida comparirà qui.")}</p>
+    ${interattiva
+      ? `<div class="scelte">${ris.map(([r, i]) => `<label class="scelta" for="r${i}"><input type="radio" name="r" id="r${i}" value="${i}"> ${esc(r)}</label>`).join("")}</div>`
+      : `<div class="scelte">${ris.map(([r, i]) => `<div class="scelta" style="cursor:default">${g.giusta === i ? ICO.spunta : ""} ${esc(r)}${g.mia?.risposta === i ? ` <span class="aiuto">· la tua risposta</span>` : ""}</div>`).join("")}</div>`}
   </div>`;
+}
+
+function pannelloGioco(g) {
+  const tot = (g.in_palio || []).reduce((s, c) => s + c.vincitori, 0);
+  const chiude = `<p class="chiusura">Si chiude stasera alle <b>23:59</b>. Estrazione a mezzanotte.</p>`;
+  const u = S.dati.utente;
+  let h = `<div class="pannello pannello-gioco" id="azione">`;
+  if (g.estratta) {
+    const vinti = u ? g.premi.filter((p) => p.vincitori.some((x) => x.id === u.id)) : [];
+    h += `<span class="label">Premi del giorno</span>`;
+    if (vinti.length) h += `<div class="avviso vinto"><span class="stato acc">Hai vinto!</span><p><b>${esc(vinti[0].etichetta)}</b>. Te lo consegniamo in gioco dal ${dataLunga(S.dati.edizione.consegna_da)}.</p></div>`;
+    else if (g.mia?.partecipato) h += `<span class="stato">Hai partecipato · +${S.dati.edizione.biscotti_partecipazione} Biscotti di Tullio</span>`;
+    h += g.premi.length ? `<div class="premi">${g.premi.map(cardPremio).join("")}</div>` : `<p class="sub">Nessun premio in questo giorno.</p>`;
+    if (g.tipo === "sfida") h += domandaSfida(g, false);
+    return h + `</div>`;
+  }
+  h += `<div class="in-palio"><span class="label">In palio ${g.stato === "oggi" ? "oggi" : ""}</span><b>${tot ? `${tot} ${tot === 1 ? "premio" : "premi"}` : "Premi in arrivo"}</b>${chipsPalio(g.in_palio)}
+    <span class="aiuto">Il premio esatto si scopre dopo l'estrazione.</span></div>`;
+  if (g.stato === "passata") return h + `<p class="prossimamente">Estrazione in corso: ricarica la pagina tra qualche minuto.</p></div>`;
+  if (g.stato === "sigillata") return h + (g.tipo === "sfida" ? domandaSfida(g, false) : "") + `<p class="prossimamente">Anteprima: il ${dataLunga(g.data)} qui i giocatori troveranno il pulsante per partecipare.</p></div>`;
+  if (!u) return h + `<a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi con Discord per partecipare</a>${chiude}</div>`;
+  if (u.ruolo === "admin") return h + (g.tipo === "sfida" ? domandaSfida(g, false) : "") + `<p class="prossimamente">Lo staff non partecipa alle estrazioni. I giocatori qui vedono il pulsante "Partecipa"${g.tipo === "sfida" ? " e la domanda" : ""}.</p>${chiude}</div>`;
+  if (!u.pg) return h + `<p>Prima di partecipare indica il personaggio a cui consegnare i premi.</p><a class="btn" href="#profilo">Completa il profilo</a>${chiude}</div>`;
+  if (g.mia?.partecipato) {
+    return h + `<span class="stato ok">${ICO.spunta} Sei in gara</span>
+      <p>${g.tipo === "sfida" ? `Hai risposto <b>${esc(g.risposte[g.mia.risposta])}</b>. Scoprirai se è giusta a mezzanotte, insieme all'estrazione.` : "La tua partecipazione è registrata."}</p>
+      <p class="aiuto">Hai ritrovato una lettera per la community. Se non vinci ricevi comunque ${S.dati.edizione.biscotti_partecipazione} Biscotti di Tullio.</p>${chiude}</div>`;
+  }
+  if (g.tipo === "sfida") {
+    return h + `<form id="form-sfida" data-n="${g.n}">${domandaSfida(g, true)}
+      <button class="btn grande" type="submit">Invia la risposta</button>
+      <p class="aiuto" style="margin-top:8px">Una sola risposta, non modificabile. Con la risposta sbagliata partecipi comunque, con 1 biglietto.</p></form>${chiude}</div>`;
+  }
+  return h + `<button class="btn grande" data-act="partecipa" data-n="${g.n}">Partecipa all'estrazione</button>${chiude}</div>`;
+}
+
+function cardPremio(p) {
+  const u = S.dati.utente;
+  const io = u && p.vincitori.some((v) => v.id === u.id);
+  return `<div class="premio-card${io ? " mio" : ""}">
+    ${p.immagine ? `<img src="${esc(p.immagine)}" alt="" loading="lazy">` : ""}
+    <div class="pc-t"><span class="label">${esc(p.categoria)}${p.posti > 1 ? ` · ${p.posti} vincitori` : ""}</span><b>${esc(p.etichetta)}</b>
+      ${p.dettagli ? `<p>${esc(p.dettagli)}</p>` : ""}<span class="aiuto">${esc(p.offerto)}</span>
+      <ul class="vincitori">${p.vincitori.length ? p.vincitori.map((v) => `<li${u && v.id === u.id ? ' class="io"' : ""}>${esc(v.nome)}</li>`).join("") : `<li class="nessuno">Nessun vincitore</li>`}</ul>
+    </div></div>`;
 }
 
 function vRegolamento() {
@@ -215,15 +282,16 @@ function vProfilo() {
       <div class="campo"><label for="mondo">Mondo</label><select id="mondo">${MONDI[dc].map((m) => `<option ${m === u.mondo ? "selected" : ""}>${m}</option>`).join("")}</select></div></div>
       <button class="btn" type="submit">Salva</button>
     </form></section>
+  <section id="mio-dicembre" style="margin-top:24px"></section>
   <p style="margin-top:18px"><a href="#aiutanti">${u.aiutante ? "Le tue offerte per il calendario" : "Vuoi offrire un premio? Diventa un aiutante"}</a></p>`;
 }
 
 /* ---------- area staff ---------- */
 async function vStaff() {
   if (!admin()) return `<div class="pannello sigillata-box"><h2>Area riservata allo staff</h2></div>`;
-  const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["testi", "Testi e date"]];
+  const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["estrazioni", "Estrazioni"], ["testi", "Testi, date e regole"]];
   const head = `<div class="staff"><nav class="staff-nav" aria-label="Sezioni staff">${nav.map(([k, t]) => `<button data-sez="${k}" aria-current="${S.staffSez === k}">${t}</button>`).join("")}
-    <p class="aiuto" style="padding:10px 12px">Regole, estrazioni, partecipanti, messaggi e consegne arrivano nei prossimi aggiornamenti.</p></nav><section id="staff-corpo"><p class="caricamento">Caricamento…</p></section></div>`;
+    <p class="aiuto" style="padding:10px 12px">Partecipanti, messaggi per Tullio, consegne e Biscotti arrivano nei prossimi aggiornamenti.</p></nav><section id="staff-corpo"><p class="caricamento">Caricamento…</p></section></div>`;
   return head;
 }
 
@@ -232,6 +300,7 @@ async function riempiStaff() {
   if (!corpo) return;
   if (S.staffSez === "testi") { corpo.innerHTML = formTesti(); return; }
   if (S.staffSez === "premi") return riempiPremi();
+  if (S.staffSez === "estrazioni") return riempiEstrazioni();
   try { S.adminGiorni = (await api("/api/admin/giorni")).giorni; }
   catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
   corpo.innerHTML = S.staffGiorno ? editorGiorno(S.adminGiorni.find((g) => g.n === S.staffGiorno)) : listaGiorni();
@@ -249,7 +318,7 @@ function listaGiorni() {
     return `<div class="giorno-card">
       <span class="gn">${x.n}<small>${GG[x.wd]} ${dataBreve(x.data)}</small></span>
       <span class="mini">${x.img_ver ? `<img src="/api/img/${x.n}/thumb?v=${x.img_ver}" alt="" loading="lazy">` : ""}</span>
-      <span class="gt"><b>${esc(x.titolo || "Senza titolo")}</b><span class="fila">${pill(c, t)}${x.tipo === "sfida" ? pill("", "Sfida" + (x.etichetta ? " · " + esc(x.etichetta) : "")) : ""}</span><span class="aiuto">${x.premio ? "Premio: " + esc(x.premio) : "Nessun premio assegnato"}</span></span>
+      <span class="gt"><b>${esc(x.titolo || "Senza titolo")}</b><span class="fila">${pill(c, t)}${x.tipo === "sfida" ? pill("", "Sfida" + (x.etichetta ? " · " + esc(x.etichetta) : "")) : ""}</span><span class="aiuto">${x.in_palio?.length ? "In palio: " + x.in_palio.map((c) => esc(c.categoria) + (c.vincitori > 1 ? " ×" + c.vincitori : "")).join(", ") : "Nessun premio assegnato"}</span></span>
       <button class="btn sec" data-staffday="${x.n}">Modifica</button></div>`;
   }).join("")}</div>`;
 }
@@ -288,7 +357,7 @@ function editorGiorno(g) {
       <div class="due">
         <div class="campo"><label for="e-tipo">Tipo di giorno</label><select id="e-tipo"><option value="sorteggio" ${!sfida ? "selected" : ""}>Sorteggio</option><option value="sfida" ${sfida ? "selected" : ""}>Sfida</option></select></div>
         <div class="campo"><label for="e-etichetta">Etichetta sul nastro</label><input type="text" id="e-etichetta" maxlength="24" value="${esc(g.etichetta)}" placeholder="Es. S. Nicola"><span class="aiuto">Compare sulla busta nei giorni di sfida. Vuota: "Sfida".</span></div>
-        <div class="campo"><span class="label" style="color:var(--ink)">Premio del giorno</span><p style="font-size:16px">${g.premio ? `<b>${esc(g.premio)}</b> <span class="aiuto">${esc(g.premio_da)}</span>` : "Nessun premio assegnato"}</p><span class="aiuto">Si assegna dalla sezione <button type="button" class="btn quieto piccolo" data-sez="premi">Premi e aiutanti</button></span></div>
+        <div class="campo"><span class="label" style="color:var(--ink)">Premi in palio</span>${g.in_palio?.length ? chipsPalio(g.in_palio) : `<p style="font-size:16px">Nessun premio assegnato</p>`}<span class="aiuto">Si assegna dalla sezione <button type="button" class="btn quieto piccolo" data-sez="premi">Premi e aiutanti</button></span></div>
       </div>
       <div id="ed-sfida" ${sfida ? "" : "hidden"}>
         <div class="campo"><label for="e-domanda">Domanda della sfida</label><input type="text" id="e-domanda" maxlength="300" value="${esc(g.domanda)}"></div>
@@ -324,6 +393,13 @@ function formTesti() {
     <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Traguardi della community</h3>
       <div class="tappe-ed">${tappe.map((t, i) => `<div class="tappa-ed"><div class="campo"><label for="ts${i}">Tappa ${i + 1}: lettere</label><input type="number" min="1" id="ts${i}" value="${esc(t.s)}"></div><div class="campo"><label for="tb${i}">Biscotti ai partecipanti</label><input type="number" min="0" id="tb${i}" value="${esc(t.b)}"></div></div>`).join("")}</div>
       <p class="aiuto">L'ultima tappa è il traguardo finale e sblocca il capitolo bonus. Lascia vuota una riga per toglierla.</p></div>
+    <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Regole delle estrazioni</h3>
+      <div class="due">
+        <div class="campo"><label for="t-tetto">Premi massimi a persona</label><input type="number" id="t-tetto" min="1" max="25" value="${esc(ed.tetto)}"><span class="aiuto">In tutto il calendario.</span></div>
+        <div class="campo"><label for="t-big">Biglietti per la risposta giusta</label><input type="number" id="t-big" min="1" max="10" value="${esc(ed.biglietti_sfida)}"><span class="aiuto">La risposta sbagliata vale 1.</span></div>
+        <div class="campo"><label for="t-bisc">Biscotti per partecipazione</label><input type="number" id="t-bisc" min="0" value="${esc(ed.biscotti_partecipazione)}"><span class="aiuto">A chi partecipa e quel giorno non vince.</span></div>
+      </div>
+      <p class="aiuto">L'estrazione dà la precedenza a chi ha vinto meno premi finora; a parità decide la sorte. Nessuno vince più di un premio al giorno né il premio che ha donato.</p></div>
     <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Aiutanti</h3>
       <div class="due">${d("t-dfino", "Offerte aperte fino al", ed.donazioni_fino)}</div>
       <div class="campo"><label for="t-aiut">Testo della pagina Aiutanti</label><textarea id="t-aiut" style="min-height:200px">${esc(ed.aiutanti_intro)}</textarea><span class="aiuto">Spiega come consegnare i doni e a chi. Lascia una riga vuota tra i paragrafi.</span></div></div>
@@ -384,15 +460,17 @@ async function inviaImmagine(n, full, thumb) {
 async function render() {
   const v = $("#vista");
   if (S.vista === "casella") { renderTesta(); return vCasella(S.giorno); }
-  v.innerHTML = S.vista === "regolamento" ? vRegolamento() : S.vista === "aiutanti" ? `<p class="caricamento">Caricamento…</p>` : S.vista === "profilo" ? vProfilo() : S.vista === "staff" ? await vStaff() : vCalendario();
+  v.innerHTML = S.vista === "regolamento" ? vRegolamento() : S.vista === "aiutanti" || S.vista === "albo" ? `<p class="caricamento">Caricamento…</p>` : S.vista === "profilo" ? vProfilo() : S.vista === "staff" ? await vStaff() : vCalendario();
   if (S.vista === "staff") riempiStaff();
   if (S.vista === "aiutanti") vAiutanti();
+  if (S.vista === "albo") vAlbo();
+  if (S.vista === "profilo") mioDicembre();
 }
 
 function leggiHash() {
   const h = (location.hash || "").slice(1);
   if (/^casella-\d+$/.test(h)) { S.vista = "casella"; S.giorno = Number(h.split("-")[1]); }
-  else if (["regolamento", "profilo", "staff", "calendario", "aiutanti"].includes(h)) S.vista = h;
+  else if (["regolamento", "profilo", "staff", "calendario", "aiutanti", "albo"].includes(h)) S.vista = h;
   else S.vista = "calendario";
 }
 window.addEventListener("hashchange", async () => {
@@ -484,6 +562,7 @@ document.addEventListener("submit", async (e) => {
       titolo: $("#t-titolo").value, sottotitolo: $("#t-sotto").value, intro: $("#t-intro").value,
       come_funziona: $("#t-come").value, regolamento: $("#t-reg").value, tappe,
       donazioni_fino: $("#t-dfino").value, aiutanti_intro: $("#t-aiut").value,
+      tetto: Number($("#t-tetto").value), biglietti_sfida: Number($("#t-big").value), biscotti_partecipazione: Number($("#t-bisc").value),
     };
     try { await putJson("/api/admin/edizione", body); toast("Testi e date salvati"); await carica(); }
     catch (err) { toast(err.message); }
@@ -523,19 +602,18 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches) (function loop() { 
 const STATO_DONO = { offerta: ["warn", "Da consegnare"], ricevuta: ["ok", "Ricevuta"], rifiutata: ["err", "Non accettata"] };
 const dataOra = (ms) => new Date(ms).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
 
-function campiDono(pref, conTipo = true) {
-  return `${conTipo ? `<fieldset class="scelta-tipo"><legend class="label" style="margin-bottom:8px">Cosa vuoi offrire</legend>
-      <label class="scelta" for="${pref}-t-ogg"><input type="radio" name="${pref}-tipo" id="${pref}-t-ogg" value="oggetto" checked> Un oggetto in gioco</label>
-      <label class="scelta" for="${pref}-t-gil"><input type="radio" name="${pref}-tipo" id="${pref}-t-gil" value="gil"> Dei GIL</label></fieldset>` : ""}
+function campiDono(pref) {
+  const cat = S.categorie || ["GIL", "Minion", "Mount", "Orchestrion roll", "Dye", "Glamour", "Fashion Accessories", "Emoticon"];
+  return `<div class="campo"><label for="${pref}-cat">Categoria</label><select id="${pref}-cat" data-cat="${pref}"><option value="">Scegli…</option>${cat.map((c) => `<option>${c}</option>`).join("")}</select></div>
     <div class="due" id="${pref}-ogg">
-      <div class="campo"><label for="${pref}-desc">Oggetto</label><input type="text" id="${pref}-desc" maxlength="100" placeholder="Es. Pure White Dye"></div>
-      <div class="campo"><label for="${pref}-qta">Quantità</label><input type="number" id="${pref}-qta" min="1" max="999" value="1"></div>
+      <div class="campo"><label for="${pref}-desc">Nome dell'oggetto</label><input type="text" id="${pref}-desc" maxlength="100" placeholder="Es. Fat Black Chocobo"></div>
+      <div class="campo"><label for="${pref}-qta">Quantità</label><input type="number" id="${pref}-qta" min="1" max="999" value="1"><span class="aiuto">Quante copie: ognuna può andare a un vincitore diverso.</span></div>
     </div>
-    <div class="campo" id="${pref}-gil" hidden><label for="${pref}-gilv">Quanti GIL</label><input type="number" id="${pref}-gilv" min="1" step="1" placeholder="Es. 500000"></div>`;
+    <div class="campo" id="${pref}-gil" hidden><label for="${pref}-gilv">Quanti GIL in tutto</label><input type="number" id="${pref}-gilv" min="1" step="1" placeholder="Es. 5000000"><span class="aiuto">Lo staff potrà dividerli tra più vincitori.</span></div>`;
 }
 function leggiDono(pref) {
-  const tipo = document.querySelector(`input[name=${pref}-tipo]:checked`)?.value || "oggetto";
-  return { tipo, descrizione: $(`#${pref}-desc`).value, quantita: Number($(`#${pref}-qta`).value || 1), gil: Number($(`#${pref}-gilv`).value || 0) };
+  const categoria = $(`#${pref}-cat`).value;
+  return { categoria, descrizione: $(`#${pref}-desc`).value, quantita: Number($(`#${pref}-qta`).value || 1), gil: Number($(`#${pref}-gilv`).value || 0) };
 }
 
 async function vAiutanti() {
@@ -543,6 +621,7 @@ async function vAiutanti() {
   let a;
   try { a = await api(conSim("/api/aiutanti")); } catch (e) { v.innerHTML = `<div class="avviso"><p>${esc(e.message)}</p></div>`; return; }
   if (S.vista !== "aiutanti") return;
+  S.categorie = a.categorie;
   const u = S.dati.utente;
   let modulo;
   if (!a.aperte) modulo = `<section class="pannello"><h3>Offerte chiuse</h3><p class="sub">Le offerte per questa edizione si sono chiuse il ${dataLunga(a.fino)}. Grazie a tutti gli aiutanti!</p></section>`;
@@ -574,20 +653,22 @@ async function riempiPremi() {
   let a, giorni;
   try { [a, giorni] = await Promise.all([api("/api/admin/donazioni"), api("/api/admin/giorni").then((x) => x.giorni)]); }
   catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
-  S.adminDoni = a; S.adminGiorni = giorni;
+  S.adminDoni = a; S.adminGiorni = giorni; S.categorie = a.categorie;
   const f = S.filtroDoni || "tutte";
   const conta = (st) => a.donazioni.filter((d) => d.stato === st).length;
-  const assegnati = a.donazioni.filter((d) => d.giorno).length;
-  const lista = a.donazioni.filter((d) => f === "tutte" || d.stato === f || (f === "libere" && d.stato === "ricevuta" && !d.giorno));
-  const filtri = [["tutte", "Tutte", a.donazioni.length], ["offerta", "Da ricevere", conta("offerta")], ["libere", "Ricevute da assegnare", a.donazioni.filter((d) => d.stato === "ricevuta" && !d.giorno).length], ["rifiutata", "Non accettate", conta("rifiutata")]];
+  const conPremio = new Set(a.donazioni.flatMap((d) => d.assegnazioni.map((x) => x.giorno)));
+  const posti = a.donazioni.reduce((s, d) => s + d.assegnazioni.reduce((t, x) => t + x.vincitori, 0), 0);
+  const lista = a.donazioni.filter((d) => f === "tutte" || d.stato === f || (f === "libere" && d.stato === "ricevuta" && d.usati < d.totale));
+  const filtri = [["tutte", "Tutte", a.donazioni.length], ["offerta", "Da ricevere", conta("offerta")], ["libere", "Ricevute da assegnare", a.donazioni.filter((d) => d.stato === "ricevuta" && d.usati < d.totale).length], ["rifiutata", "Non accettate", conta("rifiutata")]];
   corpo.innerHTML = `<h2>Premi e aiutanti</h2><p class="intro">Le offerte della community e i premi dello staff. Offerte aperte fino al ${dataLunga(a.fino)}${a.aperte ? "" : " (chiuse)"}.</p>
   <div class="stats">
     <div class="stat"><b>${conta("offerta")}</b><span>Da ricevere in gioco</span></div>
     <div class="stat"><b>${conta("ricevuta")}</b><span>Ricevute</span></div>
-    <div class="stat"><b>${assegnati}/${giorni.length}</b><span>Giorni con un premio</span></div>
+    <div class="stat"><b>${conPremio.size}/${giorni.length}</b><span>Giorni con premi</span></div>
+    <div class="stat"><b>${posti}</b><span>Vincitori previsti in tutto</span></div>
   </div>
   <div class="fila filtri" role="group" aria-label="Filtra">${filtri.map(([k, t, n]) => `<button class="btn ${f === k ? "" : "sec"} piccolo" data-act="filtro-doni" data-f="${k}">${t} · ${n}</button>`).join("")}</div>
-  <div class="doni" style="margin-top:14px">${lista.length ? lista.map((d) => cardDono(d, giorni, a.donazioni)).join("") : `<p class="prossimamente">Nessun dono in questo elenco.</p>`}</div>
+  <div class="doni" style="margin-top:14px">${lista.length ? lista.map((d) => cardDono(d, giorni)).join("") : `<p class="prossimamente">Nessun dono in questo elenco.</p>`}</div>
   <details class="pannello" style="margin-top:22px" ${a.donazioni.length ? "" : "open"}><summary><b>Aggiungi un premio dello staff</b> <span class="aiuto">o un dono ricevuto fuori dal sito</span></summary>
     <form id="form-dono-staff" style="margin-top:14px">${campiDono("s")}
       <div class="due"><div class="campo"><label for="s-chi">Donato da</label><select id="s-chi"><option value="">Staff di Our Elysion</option><option value="__nome">Un altro nome…</option>${a.utenti.map((x) => `<option value="${esc(x.id)}">${esc(x.nome)}</option>`).join("")}</select></div>
@@ -597,18 +678,40 @@ async function riempiPremi() {
     </form></details>`;
 }
 
-function cardDono(d, giorni, tutti) {
+function cardDono(d, giorni) {
   const [c, t] = STATO_DONO[d.stato];
   const chi = d.user_id ? `${esc(d.u_nome || "?")} <span class="aiuto">@${esc(d.u_username || "")}${d.u_pg ? " · " + esc(d.u_pg) + (d.u_mondo ? " (" + esc(d.u_mondo) + ")" : "") : ""}</span>` : esc(d.donatore_nome || "Staff di Our Elysion");
-  const occupati = new Map(tutti.filter((x) => x.giorno && x.id !== d.id).map((x) => [x.giorno, x.etichetta]));
-  const sel = d.stato === "ricevuta" ? `<label class="aiuto" for="g-${d.id}">Giorno</label><select id="g-${d.id}" data-act-change="assegna" data-id="${d.id}"><option value="">Non assegnato</option>${giorni.map((g) => `<option value="${g.n}" ${d.giorno === g.n ? "selected" : ""}>${g.n} · ${GG[g.wd]} ${dataBreve(g.data)}${occupati.has(g.n) ? " · al posto di " + esc(occupati.get(g.n)) : ""}</option>`).join("")}</select>` : "";
+  const gil = d.tipo === "gil";
+  const resto = d.totale - d.usati;
+  const fmt = (x) => gil ? Number(x).toLocaleString("it-IT") + " GIL" : x + (x === 1 ? " copia" : " copie");
+  const ric = d.stato === "ricevuta";
   return `<div class="dono">
-    <div class="dono-t"><b>${esc(d.etichetta)}</b><span class="fila">${pill(c, t)}${d.anonimo ? pill("", "Anonimo") : ""}${d.giorno ? pill("acc", "Giorno " + d.giorno) : ""}</span></div>
+    <div class="dono-t"><b>${esc(d.etichetta)}</b><span class="fila">${pill(c, t)}${d.anonimo ? pill("", "Anonimo") : ""}</span></div>
     <p class="dono-chi">Da ${chi}</p>
     <p class="aiuto">Sul sito: "${esc(d.pubblico)}" · registrata il ${dataOra(d.created_at)}${d.gestita_da ? " · ultima modifica: " + esc(d.gestita_da) : ""}</p>
     ${d.nota ? `<p class="dono-nota">“${esc(d.nota)}”</p>` : ""}
+    <div class="fila"><label class="aiuto" for="cat-${d.id}">Categoria</label><select id="cat-${d.id}" data-act-change="categoria" data-id="${d.id}">${d.categoria ? "" : `<option value="">Da scegliere</option>`}${(S.categorie || []).map((k) => `<option ${d.categoria === k ? "selected" : ""}>${k}</option>`).join("")}</select></div>
+    ${ric ? `<details class="dono-extra"><summary>Immagine e descrizione per dopo l'estrazione</summary>
+      <div class="dono-media">
+        <div class="dono-img">${d.img_ver ? `<img src="/api/img/premio/${d.id}?v=${d.img_ver}" alt="">` : `<span class="aiuto">Nessuna immagine</span>`}</div>
+        <div style="display:grid;gap:8px;min-width:0">
+          <label class="aiuto" for="img-${d.id}">${d.img_ver ? "Sostituisci l'immagine" : "Carica un'immagine"}</label><input type="file" id="img-${d.id}" accept="image/*" data-act-change="img-premio" data-id="${d.id}">
+          ${d.img_ver ? `<button type="button" class="btn quieto piccolo" data-act="togli-img-premio" data-id="${d.id}" style="justify-self:start">Togli l'immagine</button>` : ""}
+          <label class="aiuto" for="det-${d.id}">Descrizione</label><textarea id="det-${d.id}" maxlength="600" style="min-height:80px" placeholder="Es. La mount più veloce di Eorzea…">${esc(d.dettagli || "")}</textarea>
+          <button type="button" class="btn sec piccolo" data-act="salva-dettagli" data-id="${d.id}" style="justify-self:start">Salva la descrizione</button>
+        </div></div></details>
+    <div class="assegna">
+      <span class="label">Nei giorni · assegnato ${fmt(d.usati)} su ${fmt(d.totale)}</span>
+      ${d.assegnazioni.length ? `<ul class="ass-lista">${d.assegnazioni.map((x) => `<li><b>Giorno ${x.giorno}</b> · ${x.vincitori} ${x.vincitori === 1 ? "vincitore" : "vincitori"} · ${esc(x.etichetta)} a testa ${x.estratto ? pill("ok", "Estratto") : `<button class="btn quieto piccolo" data-act="togli-assegnazione" data-id="${x.id}">Togli</button>`}</li>`).join("")}</ul>` : ""}
+      ${resto > 0 ? `<form class="form-assegna" data-id="${d.id}">
+        <div class="campo"><label for="ag-${d.id}">Giorno</label><select id="ag-${d.id}">${giorni.map((g) => `<option value="${g.n}">${g.n} · ${GG[g.wd]} ${dataBreve(g.data)}${g.tipo === "sfida" ? " · sfida" : ""}</option>`).join("")}</select></div>
+        <div class="campo"><label for="av-${d.id}">Vincitori</label><input type="number" id="av-${d.id}" min="1" max="50" value="1"></div>
+        <div class="campo"><label for="at-${d.id}">${gil ? "GIL a testa" : "Copie a testa"}</label><input type="number" id="at-${d.id}" min="1" value="${gil ? Math.min(resto, 1000000) : 1}"></div>
+        <button class="btn piccolo" type="submit">Assegna</button>
+      </form><p class="aiuto">Da assegnare: ${fmt(resto)}.</p>` : `<p class="aiuto">Tutto assegnato.</p>`}
+    </div>` : ""}
     <div class="fila">${d.stato === "offerta" ? `<button class="btn piccolo" data-act="dono-stato" data-id="${d.id}" data-s="ricevuta">Ricevuto</button><button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="rifiutata">Non accettare</button>` : ""}
-      ${d.stato === "ricevuta" ? sel + `<button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="offerta">Annulla "ricevuto"</button>` : ""}
+      ${ric && !d.assegnazioni.length ? `<button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="offerta">Annulla "ricevuto"</button>` : ""}
       ${d.stato === "rifiutata" ? `<button class="btn quieto piccolo" data-act="dono-stato" data-id="${d.id}" data-s="offerta">Riapri</button>` : ""}
       <button class="btn quieto piccolo" data-act="dono-anon" data-id="${d.id}" data-v="${d.anonimo ? 0 : 1}">${d.anonimo ? "Mostra il nome" : "Rendi anonimo"}</button>
       <button class="btn quieto piccolo pericolo-testo" data-act="dono-elimina" data-id="${d.id}">Elimina</button></div>
@@ -617,12 +720,23 @@ function cardDono(d, giorni, tutti) {
 
 document.addEventListener("change", async (e) => {
   const t = e.target;
-  const m = t.name && t.name.match(/^(d|s)-tipo$/);
-  if (m) { const gil = t.value === "gil"; $(`#${m[1]}-ogg`).hidden = gil; $(`#${m[1]}-gil`).hidden = !gil; }
+  if (t.dataset.cat) { const pf = t.dataset.cat, gil = t.value === "GIL"; $(`#${pf}-ogg`).hidden = gil; $(`#${pf}-gil`).hidden = !gil; }
   if (t.id === "s-chi") $("#s-nome-box").hidden = t.value !== "__nome";
-  if (t.dataset.actChange === "assegna") {
-    try { await putJson(`/api/admin/donazione/${t.dataset.id}`, { giorno: t.value ? Number(t.value) : null }); toast(t.value ? `Premio assegnato al giorno ${t.value}` : "Premio tolto dal giorno"); riempiPremi(); }
+  if (t.dataset.actChange === "categoria") {
+    try { await putJson(`/api/admin/donazione/${t.dataset.id}`, { categoria: t.value }); toast("Categoria aggiornata"); riempiPremi(); }
     catch (err) { toast(err.message); }
+  }
+  if (t.dataset.actChange === "img-premio" && t.files[0]) {
+    const url = URL.createObjectURL(t.files[0]);
+    try {
+      const img = await caricaImmagine(url);
+      const w = Math.min(800, img.naturalWidth), h = Math.round(img.naturalHeight * (w / img.naturalWidth));
+      const c = document.createElement("canvas"); c.width = w; c.height = h; c.getContext("2d").drawImage(img, 0, 0, w, h);
+      const fd = new FormData(); fd.append("img", await toBlob(c, 0.82), "img");
+      await api(`/api/admin/donazione/${t.dataset.id}/immagine`, { method: "PUT", body: fd });
+      toast("Immagine del premio caricata"); riempiPremi();
+    } catch (err) { toast(err.message || "Non riesco a leggere questa immagine"); }
+    finally { URL.revokeObjectURL(url); }
   }
 });
 
@@ -632,6 +746,21 @@ document.addEventListener("click", async (e) => {
   const act = a.dataset.act, id = a.dataset.id;
   try {
     if (act === "filtro-doni") { S.filtroDoni = a.dataset.f; riempiPremi(); }
+    if (act === "togli-assegnazione") { await api(`/api/admin/assegnazione/${id}`, { method: "DELETE" }); toast("Tolto dal giorno"); riempiPremi(); }
+    if (act === "salva-dettagli") { await putJson(`/api/admin/donazione/${id}`, { dettagli: $(`#det-${id}`).value }); toast("Descrizione salvata"); }
+    if (act === "togli-img-premio") { await api(`/api/admin/donazione/${id}/immagine`, { method: "DELETE" }); riempiPremi(); }
+    if (act === "partecipa") {
+      a.disabled = true;
+      const r = await api(`/api/partecipa/${a.dataset.n}`, { method: "POST" });
+      toast("Sei in gara! Hai ritrovato una lettera"); S.dati.lettere = r.lettere; await carica();
+    }
+    if (act === "vai-azione") { $("#azione")?.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    if (act === "estrai" || act === "ripeti-estrazione") {
+      if (act === "ripeti-estrazione" && a.dataset.conferma !== "1") { a.dataset.conferma = "1"; a.textContent = "Conferma: cancella i vincitori e riestrai"; a.classList.add("conferma"); return; }
+      a.disabled = true;
+      const r = await api(`/api/admin/estrazione/${a.dataset.n}${act === "ripeti-estrazione" ? "/ripeti" : ""}`, { method: "POST" });
+      toast(`Estrazione fatta: ${r.vincitori} vincitori su ${r.partecipanti} partecipanti`); riempiEstrazioni();
+    }
     if (act === "dono-stato") { await putJson(`/api/admin/donazione/${id}`, { stato: a.dataset.s }); toast(a.dataset.s === "ricevuta" ? "Segnato come ricevuto" : "Stato aggiornato"); riempiPremi(); }
     if (act === "dono-anon") { await putJson(`/api/admin/donazione/${id}`, { anonimo: a.dataset.v === "1" }); riempiPremi(); }
     if (act === "dono-elimina") {
@@ -659,6 +788,84 @@ document.addEventListener("submit", async (e) => {
     const chi = $("#s-chi").value;
     const body = { ...leggiDono("s"), anonimo: $("#s-anon").checked, user_id: chi && chi !== "__nome" ? chi : null, donatore_nome: chi === "__nome" ? $("#s-nome").value : null };
     try { await api("/api/admin/donazioni", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); toast("Premio aggiunto al montepremi"); riempiPremi(); }
+    catch (err) { toast(err.message); }
+  }
+});
+
+/* ---------- albo, il mio dicembre, estrazioni ---------- */
+async function vAlbo() {
+  const v = $("#vista");
+  let a;
+  try { a = await api("/api/albo"); } catch (e) { v.innerHTML = `<div class="avviso"><p>${esc(e.message)}</p></div>`; return; }
+  if (S.vista !== "albo") return;
+  v.innerHTML = `<div class="pagina-h"><span class="label">Edizione ${a.anno}</span><h2>Albo dei vincitori</h2>
+    <p>Ogni notte a mezzanotte il sito estrae i vincitori del giorno, dando la precedenza a chi ha vinto meno premi finora.</p></div>
+  ${a.giorni.length ? `<div class="albo">${a.giorni.slice().reverse().map((g) => `<section class="albo-giorno"><h3><a href="#casella-${g.n}">Giorno ${g.n}</a> <span class="aiuto">${g.data ? dataLunga(g.data) : ""}</span></h3>
+      <div class="premi">${g.premi.map(cardPremio).join("") || `<p class="sub">Nessun premio.</p>`}</div></section>`).join("")}</div>`
+    : `<div class="pannello"><p>Nessuna estrazione ancora. I primi nomi compariranno nella notte dopo la prima busta.</p></div>`}`;
+}
+
+async function mioDicembre() {
+  const box = $("#mio-dicembre");
+  if (!box || !connesso()) return;
+  let m;
+  try { m = await api("/api/mio"); } catch { return; }
+  if (!$("#mio-dicembre")) return;
+  const d = S.dati, ed = d.edizione;
+  const giorniVinti = new Set(m.vincite.map((v) => v.giorno));
+  const consolazione = m.partecipazioni.filter((n) => !giorniVinti.has(n)).length * (ed.biscotti_partecipazione || 0);
+  const bonus = m.partecipazioni.length ? ed.tappe.filter((t) => d.lettere >= t.s).reduce((s, t) => s + t.b, 0) : 0;
+  const tot = (d.giorni.length || 25);
+  box.innerHTML = `<div class="sotto" style="margin-top:0">
+    <section class="pannello"><h3>Il tuo dicembre</h3>
+      <p class="sub"><span class="num">${m.partecipazioni.length}</span> ${m.partecipazioni.length === 1 ? "partecipazione" : "partecipazioni"} · <span class="num">${consolazione + bonus}</span> Biscotti di Tullio maturati${bonus ? ` (di cui ${bonus} dai traguardi)` : ""}</p>
+      <div class="chips" aria-label="Giorni a cui hai partecipato">${Array.from({ length: tot }, (_, i) => i + 1).map((n) => `<span class="chip ${giorniVinti.has(n) ? "vinto" : m.partecipazioni.includes(n) ? "si" : ""}" title="${n} dicembre">${n}</span>`).join("")}</div>
+      <div class="legenda" style="margin-top:10px"><span><i class="dot" style="background:var(--primary)"></i>Partecipato</span><span><i class="dot" style="background:var(--accent)"></i>Vinto</span></div>
+      <p class="aiuto" style="margin-top:10px">I Biscotti vengono accreditati tutti insieme a gennaio.</p>
+    </section>
+    <section class="pannello"><h3>Premi vinti</h3>
+      ${m.vincite.length ? `<ul class="vinti">${m.vincite.map((v) => `<li><span class="vg"><b class="num">${v.giorno}</b><span>dic</span></span><span class="vt"><b>${esc(v.etichetta)}</b><span>${esc(v.categoria)} · consegna a ${esc(d.utente.pg || "il tuo personaggio")}${d.utente.mondo ? " · " + esc(d.utente.mondo) : ""}</span>${v.consegnato ? pill("ok", "Consegnato") : pill("warn", `Da consegnare dal ${dataLunga(ed.consegna_da)} al ${dataLunga(ed.consegna_a)}`)}</span></li>`).join("")}</ul>`
+        : `<p class="sub">Ancora niente. Le buste da aprire sono tante.</p>`}
+    </section></div>`;
+}
+
+async function riempiEstrazioni() {
+  const corpo = $("#staff-corpo");
+  let a;
+  try { a = await api(conSim("/api/admin/estrazioni")); } catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
+  const STATI_E = { estratta: ["ok", "Estratta"], da_estrarre: ["warn", "Da estrarre"], in_corso: ["acc", "Aperta oggi"], futura: ["", "In arrivo"] };
+  corpo.innerHTML = `<h2>Estrazioni</h2><p class="intro">Il sito estrae da solo ogni notte a mezzanotte. Qui vedete come è andata, e potete ripetere un'estrazione se serve (per esempio se un vincitore rinuncia prima della consegna).</p>
+  ${a.classifica.length ? `<details class="pannello" style="margin-bottom:16px"><summary><b>Premi vinti per persona</b> <span class="aiuto">tetto: ${a.tetto}</span></summary>
+    <ul class="grazie" style="margin-top:12px">${a.classifica.map((c) => `<li>${esc(c.nome)} · ${c.vinti}</li>`).join("")}</ul></details>` : ""}
+  <div class="doni">${a.giorni.map((g) => {
+    const [c, t] = STATI_E[g.stato];
+    return `<div class="dono">
+      <div class="dono-t"><b>Giorno ${g.n} <span class="aiuto">${GG[new Date(g.data + "T12:00:00Z").getUTCDay()]} ${dataBreve(g.data)}</span></b><span class="fila">${pill(c, t)}</span></div>
+      <p class="aiuto">${g.partecipanti} ${g.partecipanti === 1 ? "partecipante" : "partecipanti"} · ${g.posti} ${g.posti === 1 ? "premio" : "premi"} in palio${g.eseguita_at ? ` · estratta il ${new Date(g.eseguita_at).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} (${esc(g.eseguita_da)})` : ""}</p>
+      ${g.premi.length ? `<ul class="ass-lista">${g.premi.map((p) => `<li><b>${esc(p.etichetta)}</b> → ${p.vincitori.length ? p.vincitori.map((v) => esc(v.nome)).join(", ") : "<i>nessun vincitore</i>"}</li>`).join("")}</ul>` : ""}
+      ${g.log.some((l) => l.startsWith("Nessun")) ? `<p class="aiuto" style="color:var(--warn)">${g.log.filter((l) => l.startsWith("Nessun")).map(esc).join("<br>")}</p>` : ""}
+      <div class="fila">${g.stato === "da_estrarre" ? `<button class="btn piccolo" data-act="estrai" data-n="${g.n}">Estrai ora</button>` : ""}
+        ${g.stato === "estratta" ? `<button class="btn quieto piccolo pericolo-testo" data-act="ripeti-estrazione" data-n="${g.n}">Ripeti l'estrazione</button>` : ""}</div>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+document.addEventListener("submit", async (e) => {
+  const f = e.target;
+  if (f.id === "form-sfida") {
+    e.preventDefault();
+    const r = f.querySelector("input[name=r]:checked");
+    if (!r) { toast("Scegli una risposta"); return; }
+    try {
+      const res = await api(`/api/partecipa/${f.dataset.n}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ risposta: Number(r.value) }) });
+      toast("Risposta registrata! Hai ritrovato una lettera"); S.dati.lettere = res.lettere; await carica();
+    } catch (err) { toast(err.message); }
+  }
+  if (f.classList.contains("form-assegna")) {
+    e.preventDefault();
+    const id = f.dataset.id;
+    const body = { giorno: Number($(`#ag-${id}`).value), vincitori: Number($(`#av-${id}`).value), a_testa: Number($(`#at-${id}`).value) };
+    try { await api(`/api/admin/donazione/${id}/assegna`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); toast(`Assegnato al giorno ${body.giorno}`); riempiPremi(); }
     catch (err) { toast(err.message); }
   }
 });
