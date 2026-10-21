@@ -83,7 +83,7 @@ function renderTesta() {
   const u = d.utente;
   $("#utente").innerHTML = u
     ? `<span class="avatar" aria-hidden="true">${u.avatar ? `<img src="${esc(u.avatar)}" alt="">` : esc(u.nome[0] || "?")}</span><span>${esc(u.nome)}${u.aiutante ? SEGNO() : ""}${u.ruolo === "admin" ? " · staff" : ""}</span><button class="esci" data-act="esci">Esci</button>`
-    : `<a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi con Discord</a>`;
+    : `<a class="btn-discord" href="/api/auth/login">Entra con Discord</a>`;
 
   // contatore della community
   const c = $("#contatore");
@@ -138,7 +138,7 @@ function vAttesa() {
     <h2>Il calendario si apre il ${dataLunga(ed.inizio)} a mezzanotte</h2>
     <div class="conto"><div><b>${k}</b><span>${k === 1 ? "giorno" : "giorni"} all'apertura</span></div><div><b>${S.dati.giorni.length || giorniTra(ed.inizio, ed.fine) + 1}</b><span>buste da aprire</span></div></div>
     <p>${connesso() ? "Ci sei! Intanto completa il tuo profilo: indica il personaggio a cui consegnare gli eventuali premi." : "Per partecipare servirà accedere con il tuo account Discord del server Our Elysion."}</p>
-    ${connesso() ? `<a class="btn" href="#profilo">Completa il profilo</a>` : `<a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi con Discord</a>`}
+    ${connesso() ? `<a class="btn" href="#profilo">Completa il profilo</a>` : `<a class="btn-discord" href="/api/auth/login">Entra con Discord</a>`}
     ${connesso() ? "" : NOTA_LOGIN}
   </div>
   <div class="sotto">${pannelloCome()}</div>`;
@@ -238,7 +238,7 @@ function pannelloGioco(g) {
     <span class="aiuto">Il premio esatto si scopre dopo l'estrazione.</span></div>`;
   if (g.stato === "passata") return h + `<p class="prossimamente">Estrazione in corso: ricarica la pagina tra qualche minuto.</p></div>`;
   if (g.stato === "sigillata") return h + (g.tipo === "sfida" ? domandaSfida(g, false) : "") + `<p class="prossimamente">Anteprima: il ${dataLunga(g.data)} qui i giocatori troveranno il pulsante per partecipare.</p></div>`;
-  if (!u) return h + `<a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi con Discord per partecipare</a>${NOTA_LOGIN}${chiude}</div>`;
+  if (!u) return h + `<a class="btn-discord" href="/api/auth/login">Accedi con Discord per partecipare</a>${NOTA_LOGIN}${chiude}</div>`;
   if (u.ruolo === "admin") return h + (g.tipo === "sfida" ? domandaSfida(g, false) : "") + `<p class="prossimamente">Lo staff non partecipa alle estrazioni. I giocatori qui vedono il pulsante "Partecipa"${g.tipo === "sfida" ? " e la domanda" : ""}.</p>${chiude}</div>`;
   if (!u.pg) return h + `<p>Prima di partecipare indica il personaggio a cui consegnare i premi.</p><a class="btn" href="#profilo">Completa il profilo</a>${chiude}</div>`;
   if (g.mia?.partecipato) {
@@ -277,7 +277,7 @@ function vRegolamento() {
 
 function vProfilo() {
   const u = S.dati.utente;
-  if (!u) return `<div class="pannello sigillata-box"><h2>Accedi per vedere il tuo profilo</h2><a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi con Discord</a></div>`;
+  if (!u) return `<div class="pannello sigillata-box"><h2>Accedi per vedere il tuo profilo</h2><a class="btn-discord" href="/api/auth/login">Entra con Discord</a></div>`;
   const dc = u.dc || "Light";
   return `<div class="pagina-h"><span class="label">Il mio profilo</span><h2>${esc(u.nome)}</h2><p>@${esc(u.username)} su Discord</p></div>
   ${u.aiutante ? `<div class="timbro-aiutante">${SEGNO("grande")}<span><b>Aiutante del postino</b><span>Edizione ${S.dati.edizione.anno} · grazie per aver aiutato Tullio con i premi! Il francobollo compare accanto al tuo nome in tutto il sito.</span></span></div>` : ""}
@@ -648,7 +648,7 @@ async function vAiutanti() {
   const u = S.dati.utente;
   let modulo;
   if (!a.aperte) modulo = `<section class="pannello"><h3>Offerte chiuse</h3><p class="sub">Le offerte per questa edizione si sono chiuse il ${dataLunga(a.fino)}. Grazie a tutti gli aiutanti!</p></section>`;
-  else if (!u) modulo = `<section class="pannello"><h3>Offri un premio</h3><p class="sub">Accedi con il tuo account Discord del server Our Elysion per registrare la tua offerta.</p><a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi con Discord</a></section>`;
+  else if (!u) modulo = `<section class="pannello"><h3>Offri un premio</h3><p class="sub">Accedi con il tuo account Discord del server Our Elysion per registrare la tua offerta.</p><a class="btn-discord" href="/api/auth/login">Entra con Discord</a></section>`;
   else modulo = `<section class="pannello"><h3>Offri un premio</h3><p class="sub">Puoi registrare più offerte. Scadenza: ${dataLunga(a.fino)}.</p>
     <form id="form-dono">${campiDono("d")}
       <fieldset style="border:0;padding:0;margin:0 0 14px"><legend class="label" style="margin-bottom:8px">Sotto il premio, a dicembre</legend>
@@ -1048,7 +1048,7 @@ async function boxMessaggi() {
   }
   h += `<p class="sub">Lascia un messaggio a Tullio: da buon portavoce di Our Elysion, lo consegnerà a tutta la community il ${dataLunga(a.pubblici_dal)}.</p>`;
   if (!a.aperti) h += `<p class="prossimamente">${S.dati.oggi < a.da ? `Potrai scrivere dal ${dataLunga(a.da)}.` : "Tullio ha chiuso la sacca: i messaggi saranno consegnati domani."}</p>`;
-  else if (!u) h += `<a class="btn-discord" href="/api/auth/login">${ICO.discord} Accedi per scrivere</a>`;
+  else if (!u) h += `<a class="btn-discord" href="/api/auth/login">Accedi per scrivere</a>`;
   else {
     const st = a.mio ? { attesa: ["warn", "In attesa di approvazione"], ok: ["ok", "Approvato"], no: ["err", "Non approvato: puoi modificarlo"] }[a.mio.stato] : null;
     h += `<form id="form-msg">
