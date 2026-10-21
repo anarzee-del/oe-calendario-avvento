@@ -469,10 +469,11 @@ async function inviaImmagine(n, full, thumb) {
 async function render() {
   const v = $("#vista");
   if (S.vista === "casella") { renderTesta(); return vCasella(S.giorno); }
-  v.innerHTML = S.vista === "regolamento" ? vRegolamento() : S.vista === "aiutanti" || S.vista === "albo" ? `<p class="caricamento">Caricamento…</p>` : S.vista === "profilo" ? vProfilo() : S.vista === "staff" ? await vStaff() : vCalendario();
+  v.innerHTML = S.vista === "regolamento" ? vRegolamento() : ["aiutanti", "albo", "posta"].includes(S.vista) ? `<p class="caricamento">Caricamento…</p>` : S.vista === "profilo" ? vProfilo() : S.vista === "staff" ? await vStaff() : vCalendario();
   if (S.vista === "staff") riempiStaff();
   if (S.vista === "aiutanti") vAiutanti();
   if (S.vista === "albo") vAlbo();
+  if (S.vista === "posta") vPosta();
   if (S.vista === "calendario" && !S.dati.chiuso) boxMessaggi();
   if (S.vista === "profilo") mioDicembre();
 }
@@ -480,7 +481,7 @@ async function render() {
 function leggiHash() {
   const h = (location.hash || "").slice(1);
   if (/^casella-\d+$/.test(h)) { S.vista = "casella"; S.giorno = Number(h.split("-")[1]); }
-  else if (["regolamento", "profilo", "staff", "calendario", "aiutanti", "albo"].includes(h)) S.vista = h;
+  else if (["regolamento", "profilo", "staff", "calendario", "aiutanti", "albo", "posta"].includes(h)) S.vista = h;
   else S.vista = "calendario";
 }
 window.addEventListener("hashchange", async () => {
@@ -1027,9 +1028,10 @@ async function boxMessaggi() {
   const u = S.dati.utente;
   let h = `<h3>Un messaggio per la community</h3>`;
   if (a.pubblicata) {
-    box.outerHTML = `<section class="pannello posta" id="box-messaggi"><h3>La posta di Tullio</h3>
-      <p class="sub">Tullio, portavoce di Our Elysion, consegna alla community i messaggi che gli avete affidato.</p>
-      ${a.posta.length ? `<ul class="posta-lista">${a.posta.map((x) => `<li><p>${esc(x.testo)}</p><span class="aiuto">— ${esc(x.nome)}</span></li>`).join("")}</ul>` : `<p class="sub">Quest'anno la sacca di Tullio è rimasta vuota.</p>`}</section>`;
+    const n = a.posta.length;
+    box.outerHTML = `<section class="pannello posta-invito" id="box-messaggi"><h3>La posta di Tullio</h3>
+      ${n ? `<p class="sub">Tullio ha appeso all'albero ${n === 1 ? "una lettera" : `${n} lettere`} per tutta la community. Tocca una busta per aprirla.</p>
+      <a class="btn" href="#posta">Vai all'albero delle lettere</a>` : `<p class="sub">Quest'anno la sacca di Tullio è rimasta vuota.</p>`}</section>`;
     return;
   }
   h += `<p class="sub">Lascia un messaggio a Tullio: da buon portavoce di Our Elysion, lo consegnerà a tutta la community il ${dataLunga(a.pubblici_dal)}.</p>`;
@@ -1059,7 +1061,7 @@ async function riempiMessaggi() {
   corpo.innerHTML = `<h2>Messaggi per Tullio</h2>
   <p class="intro">I giocatori scrivono dal ${dataLunga(a.da)} al ${dataLunga(a.fino)}; il ${dataLunga(a.pubblici_dal)} i messaggi approvati compaiono a tutti come "La posta di Tullio". Se qualcuno modifica un messaggio, torna da approvare.</p>
   <div class="fila filtri" role="group">${[["attesa", "Da approvare", n("attesa")], ["ok", "Approvati", n("ok")], ["no", "Nascosti", n("no")], ["tutti", "Tutti", a.messaggi.length]].map(([k, t, c]) => `<button class="btn ${f === k ? "" : "sec"} piccolo" data-act="filtro-msg" data-f="${k}">${t} · ${c}</button>`).join("")}
-    ${n("ok") ? `<button class="btn quieto piccolo" data-act="copia-msg">Copia gli approvati</button>` : ""}</div>
+    ${n("ok") ? `<button class="btn quieto piccolo" data-act="copia-msg">Copia gli approvati</button><a class="btn quieto piccolo" href="#posta">Anteprima dell'albero</a>` : ""}</div>
   <div class="doni" style="margin-top:14px">${lista.length ? lista.map((x) => `<div class="dono">
     <div class="dono-t"><b style="font-size:18px">${esc(x.nome)} <span class="aiuto">@${esc(x.username)}</span></b>${pill(...STM[x.stato])}</div>
     <p class="msg-testo">${esc(x.testo)}</p>
@@ -1067,6 +1069,174 @@ async function riempiMessaggi() {
       ${x.stato !== "no" ? `<button class="btn quieto piccolo" data-act="msg-stato" data-id="${x.user_id}" data-s="no">Nascondi</button>` : ""}
       ${x.moderato_da ? `<span class="aiuto">da ${esc(x.moderato_da)}</span>` : ""}</div></div>`).join("") : `<p class="prossimamente">Nessun messaggio in questo elenco.</p>`}</div>`;
 }
+
+/* ---------- albero delle lettere ---------- */
+// Sagoma dell'abete in un riquadro 100 × 120: quattro palchi sovrapposti.
+const PALCHI = [[10, 38, 17], [24, 60, 28], [42, 80, 38], [60, 99, 47]];
+function larghezzaAlbero(y) {
+  let w = 0;
+  for (const [t, b, hw] of PALCHI) if (y >= t && y <= b) w = Math.max(w, hw * (y - t) / (b - t));
+  return w;
+}
+function semeCasuale(seed) { let x = seed >>> 0 || 1; return () => ((x = (x * 1664525 + 1013904223) >>> 0) / 4294967296); }
+function hashTesto(t) { let h = 2166136261; for (const c of t) h = Math.imul(h ^ c.codePointAt(0), 16777619); return (h >>> 0).toString(36); }
+
+// Posti per n buste: righe orizzontali dentro la sagoma, il più grandi possibile.
+function postiLettere(n) {
+  if (!n) return { posti: [], dim: 0 };
+  for (let s = 15; s >= 4; s -= 0.25) {
+    const righe = [];
+    for (let y = 20; y <= 95; y += s * 0.82) {
+      const w = larghezzaAlbero(y) - s * 0.55;
+      const cap = Math.max(0, Math.floor((2 * w) / s) + 1);
+      if (cap > 0 && w > 0) righe.push({ y, w, cap });
+    }
+    const tot = righe.reduce((a, r) => a + r.cap, 0);
+    if (tot < n) continue;
+    // distribuisce le buste sulle righe in proporzione allo spazio
+    const quote = righe.map((r) => (n * r.cap) / tot);
+    const conta = quote.map((q, i) => Math.min(righe[i].cap, Math.floor(q)));
+    let resto = n - conta.reduce((a, b) => a + b, 0);
+    const ordine = quote.map((q, i) => [q - Math.floor(q), i]).sort((a, b) => b[0] - a[0]);
+    for (let k = 0; resto > 0; k = (k + 1) % ordine.length) { const i = ordine[k][1]; if (conta[i] < righe[i].cap) { conta[i]++; resto--; } }
+    const rnd = semeCasuale(n * 7919);
+    const posti = [];
+    righe.forEach((r, i) => {
+      const c = conta[i]; if (!c) return;
+      for (let j = 0; j < c; j++) {
+        const x = c === 1 ? 50 : 50 - r.w + (2 * r.w * j) / (c - 1);
+        posti.push({ x: x + (rnd() - 0.5) * s * 0.18, y: r.y + (rnd() - 0.5) * s * 0.16, r: Math.round((rnd() - 0.5) * 18) });
+      }
+    });
+    // mescola i posti così le lettere non seguono l'ordine di arrivo
+    for (let i = posti.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [posti[i], posti[j]] = [posti[j], posti[i]]; }
+    return { posti, dim: Math.min(s * 0.8, 12) };
+  }
+  return { posti: [], dim: 0 };
+}
+
+function svgAlbero() {
+  const rnd = semeCasuale(25);
+  const palchi = PALCHI.map(([t, b, hw], i) => {
+    // bordo inferiore a festoni
+    const k = 4 + i * 2, passo = (2 * hw) / k;
+    let d = `M50 ${t} L${50 + hw} ${b}`;
+    for (let j = 0; j < k; j++) { const x1 = 50 + hw - passo * j, x2 = x1 - passo; d += ` Q${(x1 + x2) / 2} ${b - 3.2} ${x2} ${b}`; }
+    return `<path d="${d} Z" class="palco p${i}"/>`;
+  }).join("");
+  // ghirlande di lucine
+  let luci = "";
+  for (const [t, b, hw] of PALCHI) {
+    const y0 = t + (b - t) * 0.45, y1 = b - 4;
+    for (let j = 0; j <= 8; j++) {
+      const f = j / 8, y = y0 + (y1 - y0) * f + Math.sin(f * Math.PI) * 2.5;
+      const w = larghezzaAlbero(y) - 1.5;
+      const x = 50 - w + 2 * w * f;
+      luci += `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(0.55 + rnd() * 0.35).toFixed(2)}" class="luce l${j % 3}" style="animation-delay:${(rnd() * 3).toFixed(2)}s"/>`;
+    }
+  }
+  let stelle = "";
+  for (let i = 0; i < 40; i++) stelle += `<circle cx="${(rnd() * 100).toFixed(1)}" cy="${(rnd() * 70).toFixed(1)}" r="${(0.15 + rnd() * 0.3).toFixed(2)}" class="stellina"/>`;
+  return `<svg class="albero-svg" viewBox="0 0 100 120" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    ${stelle}
+    <ellipse cx="50" cy="111" rx="40" ry="5" class="neve"/>
+    <rect x="45.5" y="97" width="9" height="12" rx="1" class="tronco"/>
+    ${palchi}${luci}
+    <path d="M50 2.2l1.9 4.2 4.6.5-3.4 3.1 1 4.5L50 12.2l-4.1 2.3 1-4.5-3.4-3.1 4.6-.5Z" class="puntale"/>
+  </svg>`;
+}
+const SVG_BUSTA = `<svg viewBox="0 0 40 30" aria-hidden="true"><path class="cordino" d="M20 -14V3"/><rect class="carta" x="1" y="3" width="38" height="26" rx="1.5"/><path class="lembo" d="M1.5 4L20 18 38.5 4"/><circle class="ceralacca" cx="20" cy="17" r="3.4"/></svg>`;
+
+function letteLeggi(anno) { try { return new Set(JSON.parse(localStorage.getItem("oe_lette_" + anno) || "[]")); } catch { return new Set(); } }
+function letteSalva(anno, set) { try { localStorage.setItem("oe_lette_" + anno, JSON.stringify([...set])); } catch {} }
+
+async function vPosta() {
+  const v = $("#vista");
+  let a;
+  try { a = await api(conSim("/api/messaggi")); } catch (e) { v.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
+  if (S.vista !== "posta") return;
+  const anno = S.dati.edizione.anno;
+  const staff = S.dati.utente?.ruolo === "admin";
+  const indietro = `<a class="indietro" href="#calendario">← Torna al calendario</a>`;
+  if (!a.pubblicata && !staff) {
+    v.innerHTML = `${indietro}<div class="pannello sigillata-box"><span class="label">La posta di Tullio</span>
+      <h2>Tullio sta ancora raccogliendo le lettere</h2><p style="color:var(--muted)">Le appenderà all'albero il ${dataLunga(a.pubblici_dal)}, per tutta la community.</p></div>`;
+    return;
+  }
+  const posta = a.posta;
+  S.posta = { anno, posta, chiavi: posta.map((x) => hashTesto(x.nome + "\u0000" + x.testo)), aperta: -1 };
+  const lette = letteLeggi(anno);
+  const { posti, dim } = postiLettere(posta.length);
+  const buste = posta.map((x, i) => {
+    const p = posti[i];
+    return `<button type="button" class="lettera ${lette.has(S.posta.chiavi[i]) ? "letta" : ""}" data-lettera="${i}"
+      style="left:${p.x}%;top:${(p.y / 120) * 100}%;width:${dim}%;--r:${p.r}deg;--c:${i % 4}"
+      aria-label="Lettera di ${esc(x.nome)}">${SVG_BUSTA}</button>`;
+  }).join("");
+  const anteprima = !a.pubblicata ? `<div class="avviso"><span class="stato">Anteprima</span><p><b>Solo lo staff vede l'albero adesso.</b> I giocatori lo vedranno dal ${dataLunga(a.pubblici_dal)}, con i messaggi approvati a quel momento.</p></div>` : "";
+  v.innerHTML = `${indietro}${anteprima}
+  <div class="posta-testa"><span class="label">${esc(S.dati.edizione.marchio || "Calendario dell'Avvento")} ${anno}</span>
+    <h2>La posta di Tullio</h2>
+    <p class="intro">${posta.length ? `Tullio, portavoce di Our Elysion, ha appeso all'albero ${posta.length === 1 ? "la lettera che gli avete affidato" : `le ${posta.length} lettere che gli avete affidato`}. Tocca una busta per leggerla.` : "Quest'anno la sacca di Tullio è rimasta vuota."}</p>
+    ${posta.length ? `<p class="aiuto" id="conta-lette"></p>` : ""}</div>
+  <div class="albero-scena"><div class="albero">${svgAlbero()}${buste}</div></div>
+  ${posta.length ? `<details class="pannello tutte-lettere"><summary><b>Leggile tutte in fila</b></summary>
+    <ul class="posta-lista">${posta.map((x) => `<li><p>${esc(x.testo)}</p><span class="aiuto">${esc(x.nome)}</span></li>`).join("")}</ul></details>` : ""}
+  <dialog class="foglio-lettera" id="foglio-lettera" aria-labelledby="fl-chi">
+    <div class="fl-carta">
+      <span class="label" id="fl-num"></span>
+      <p class="fl-testo" id="fl-testo"></p>
+      <p class="fl-firma" id="fl-chi"></p>
+    </div>
+    <div class="fl-azioni">
+      <button type="button" class="btn sec piccolo" data-act="lettera-prec" aria-label="Lettera precedente">←</button>
+      <button type="button" class="btn piccolo" data-act="lettera-chiudi">Rimetti nella busta</button>
+      <button type="button" class="btn sec piccolo" data-act="lettera-succ" aria-label="Lettera successiva">→</button>
+    </div>
+  </dialog>`;
+  contaLette();
+  $("#foglio-lettera").addEventListener("close", () => {
+    const i = S.posta.aperta; S.posta.aperta = -1;
+    $(`[data-lettera="${i}"]`)?.focus({ preventScroll: true });
+  });
+  $("#foglio-lettera").addEventListener("click", (e) => { if (e.target.id === "foglio-lettera") e.target.close(); });
+}
+function contaLette() {
+  const el = $("#conta-lette"); if (!el || !S.posta) return;
+  const lette = letteLeggi(S.posta.anno);
+  const k = S.posta.chiavi.filter((c) => lette.has(c)).length, n = S.posta.chiavi.length;
+  el.textContent = k === 0 ? "" : k === n ? `Le hai lette tutte: grazie da parte di Tullio!` : `Ne hai aperte ${k} su ${n}.`;
+}
+function apriLettera(i) {
+  const P = S.posta; if (!P || !P.posta.length) return;
+  i = (i + P.posta.length) % P.posta.length;
+  P.aperta = i;
+  const x = P.posta[i];
+  $("#fl-num").textContent = `Lettera ${i + 1} di ${P.posta.length}`;
+  $("#fl-testo").textContent = x.testo;
+  $("#fl-chi").textContent = x.nome;
+  const d = $("#foglio-lettera");
+  if (!d.open) d.showModal();
+  d.querySelector(".fl-carta").classList.remove("svela"); void d.offsetWidth; d.querySelector(".fl-carta").classList.add("svela");
+  const lette = letteLeggi(P.anno);
+  if (!lette.has(P.chiavi[i])) { lette.add(P.chiavi[i]); letteSalva(P.anno, lette); }
+  $(`[data-lettera="${i}"]`)?.classList.add("letta");
+  contaLette();
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-lettera]");
+  if (b) { apriLettera(Number(b.dataset.lettera)); return; }
+  const a = e.target.closest("[data-act^='lettera-']"); if (!a || !S.posta) return;
+  const act = a.dataset.act;
+  if (act === "lettera-chiudi") $("#foglio-lettera").close();
+  if (act === "lettera-prec") apriLettera(S.posta.aperta - 1);
+  if (act === "lettera-succ") apriLettera(S.posta.aperta + 1);
+});
+document.addEventListener("keydown", (e) => {
+  if (!S.posta || S.posta.aperta < 0 || !$("#foglio-lettera")?.open) return;
+  if (e.key === "ArrowLeft") apriLettera(S.posta.aperta - 1);
+  if (e.key === "ArrowRight") apriLettera(S.posta.aperta + 1);
+});
 
 /* ---------- partecipanti ---------- */
 async function riempiPartecipanti() {
