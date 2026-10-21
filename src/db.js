@@ -1,6 +1,6 @@
 // Schema del database e dati iniziali. Lo schema si crea da solo alla prima richiesta.
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 // Ogni versione contiene solo le modifiche rispetto alla precedente.
 const V1 = [
@@ -127,7 +127,11 @@ const V7 = [
      PRIMARY KEY (edition, user_id))`,
 ];
 
-const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7 };
+// V8: "1° dicembre" con l'ordinale
+const V8 = [
+  `UPDATE editions SET sottotitolo = '1°' || substr(sottotitolo, 2) WHERE sottotitolo LIKE '1 %'`,
+];
+const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8 };
 
 const COME_FUNZIONA_2026 = `Ogni giorno alle 00:00 si apre una busta con un nuovo capitolo della storia.
 
@@ -206,7 +210,7 @@ async function seed(env) {
     ).bind(
       year, "2026-12-01", "2026-12-25", "2027-01-02", "2027-01-15",
       "Le lettere perdute",
-      "1 – 25 dicembre · una lettera al giorno",
+      "1° – 25 dicembre · una lettera al giorno",
       "Una tempesta di neve su Ishgard ha sparso la posta di un moogle per tutta Eorzea. Ogni giorno si apre una busta: leggi il capitolo, partecipa e aiuta a ritrovare le lettere.",
       COME_FUNZIONA_2026, REGOLAMENTO_2026, tappe
     ),

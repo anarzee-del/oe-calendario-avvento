@@ -45,8 +45,10 @@ async function api(path, opts = {}) {
 const putJson = (path, body) => api(path, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 let toastT;
 function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (el.hidden = true), 3500); }
-const dataLunga = (iso) => new Date(iso + "T12:00:00Z").toLocaleDateString("it-IT", { day: "numeric", month: "long", timeZone: "UTC" });
-const dataBreve = (iso) => new Date(iso + "T12:00:00Z").toLocaleDateString("it-IT", { day: "numeric", month: "short", timeZone: "UTC" });
+// il primo del mese si scrive con l'ordinale: "1° dicembre"
+const primo = (t) => t.replace(/^1 /, "1° ");
+const dataLunga = (iso) => primo(new Date(iso + "T12:00:00Z").toLocaleDateString("it-IT", { day: "numeric", month: "long", timeZone: "UTC" }));
+const dataBreve = (iso) => primo(new Date(iso + "T12:00:00Z").toLocaleDateString("it-IT", { day: "numeric", month: "short", timeZone: "UTC" }));
 const giorniTra = (a, b) => Math.round((new Date(b + "T12:00:00Z") - new Date(a + "T12:00:00Z")) / 86400000);
 const paragrafi = (t) => String(t || "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 const admin = () => S.dati?.utente?.ruolo === "admin";
@@ -619,7 +621,7 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches) (function loop() { 
 
 /* ---------- aiutanti del postino ---------- */
 const STATO_DONO = { offerta: ["warn", "Da consegnare"], ricevuta: ["ok", "Ricevuta"], rifiutata: ["err", "Non accettata"] };
-const dataOra = (ms) => new Date(ms).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+const dataOra = (ms) => primo(new Date(ms).toLocaleDateString("it-IT", { day: "numeric", month: "short" }));
 
 function campiDono(pref) {
   const cat = S.categorie || ["GIL", "Minion", "Mount", "Orchestrion roll", "Dye", "Glamour", "Fashion Accessories", "Emoticon"];
@@ -1269,7 +1271,7 @@ function disegnaPartecipanti() {
   <div class="campo" style="max-width:360px"><label for="cerca-part">Cerca per nome o personaggio</label><input type="text" id="cerca-part" value="${esc(S.cercaPart || "")}"></div>
   <div class="doni">${lista.map((x) => `<div class="dono${x.escluso ? " escluso" : ""}">
     <div class="dono-t"><b style="font-size:20px">${esc(x.nome)} <span class="aiuto">@${esc(x.username)}</span></b><span class="fila">${x.staff ? pill("", "Staff") : ""}${x.escluso ? pill("err", "Escluso") : ""}${!x.staff && !x.pg ? pill("warn", "Profilo incompleto") : ""}</span></div>
-    <p class="aiuto">${x.pg ? `${esc(x.pg)} · ${esc(x.mondo || "")} (${esc(x.dc || "")})` : "Personaggio non indicato"} · ${x.partecipazioni} ${x.partecipazioni === 1 ? "partecipazione" : "partecipazioni"} · ${x.vincite} ${x.vincite === 1 ? "premio" : "premi"}${x.doni ? ` · aiutante (${x.doni})` : ""}${x.last_login ? ` · ultimo accesso ${new Date(x.last_login).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}` : ""}</p>
+    <p class="aiuto">${x.pg ? `${esc(x.pg)} · ${esc(x.mondo || "")} (${esc(x.dc || "")})` : "Personaggio non indicato"} · ${x.partecipazioni} ${x.partecipazioni === 1 ? "partecipazione" : "partecipazioni"} · ${x.vincite} ${x.vincite === 1 ? "premio" : "premi"}${x.doni ? ` · aiutante (${x.doni})` : ""}${x.last_login ? ` · ultimo accesso ${dataOra(x.last_login)}` : ""}</p>
     ${x.staff ? "" : `<div class="fila"><button class="btn quieto piccolo ${x.escluso ? "" : "pericolo-testo"}" data-act="escludi" data-id="${x.id}" data-v="${x.escluso ? 0 : 1}">${x.escluso ? "Riammetti" : "Escludi"}</button></div>`}
   </div>`).join("") || `<p class="prossimamente">Nessuno trovato.</p>`}</div>`;
 }
