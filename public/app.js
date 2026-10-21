@@ -73,7 +73,7 @@ function renderTesta() {
   document.title = (ed.titolo ? ed.titolo + " · " : "") + "Avvento Our Elysion";
 
   const voci = [["calendario", "Calendario"], ["aiutanti", "Aiutanti"]];
-  if ((!S.dati.chiuso && !S.dati.prima) || S.dati.ha_albo) voci.push(["albo", "Albo"]);
+  voci.push(["albo", "Albo"]);
   voci.push(["regolamento", "Regolamento"]);
   if (connesso()) voci.push(["profilo", "Il mio profilo"]);
   if (admin()) voci.push(["staff", "Area staff"]);
@@ -827,7 +827,7 @@ async function vAlbo() {
     ${a.anni.length > 1 ? `<div class="fila filtri" role="group" aria-label="Edizione">${a.anni.map((y) => `<button class="btn ${y === a.anno ? "" : "sec"} piccolo" data-act="albo-anno" data-anno="${y}">${y}</button>`).join("")}</div>` : ""}</div>
   ${a.giorni.length ? `<div class="albo">${a.giorni.slice().reverse().map((g) => `<section class="albo-giorno"><h3>${corrente ? `<a href="#casella-${g.n}">Giorno ${g.n}</a>` : `Giorno ${g.n}`} <span class="aiuto">${g.data ? dataLunga(g.data) : ""}</span></h3>
       <div class="premi">${g.premi.map(cardPremio).join("") || `<p class="sub">Nessun premio.</p>`}</div></section>`).join("")}</div>`
-    : `<div class="pannello"><p>Nessuna estrazione ancora. I primi nomi compariranno nella notte dopo la prima busta.</p></div>`}`;
+    : `<div class="pannello"><p>${corrente ? `Ancora nessuna estrazione. I primi vincitori compariranno qui alla mezzanotte tra il ${dataLunga(S.dati.edizione.inizio).replace(/ .*/, "")} e il ${dataLunga(new Date(Date.parse(S.dati.edizione.inizio + "T12:00:00Z") + 86400000).toISOString().slice(0, 10))}, dopo la prima busta, e poi ogni notte fino all'ultima busta.` : "Nessuna estrazione in questa edizione."}</p></div>`}`;
 }
 
 async function mioDicembre() {
