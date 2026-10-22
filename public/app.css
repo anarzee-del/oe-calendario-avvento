@@ -208,3 +208,18 @@ dialog.foglio-lettera::backdrop{background:rgba(10,24,36,.72)}
 @media (max-width:520px){.promemoria{grid-template-columns:minmax(0,1fr)}.promemoria .btn{grid-column:1;width:100%;justify-content:center}}
 
 .giorno-card .stato{white-space:nowrap}
+
+/* capitolo bonus */
+.bonus-busta{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;margin-top:14px;padding:22px 22px 22px 22px;min-height:120px;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 22%,var(--paper)),var(--paper) 60%);border:2px solid var(--accent);border-radius:6px;color:var(--ink);text-decoration:none;overflow:hidden;transition:transform .18s ease,box-shadow .18s ease}
+.bonus-busta:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.bonus-busta .bb-nastro{position:absolute;left:0;top:14px;background:var(--accent);color:var(--on-accent);font-family:var(--f-label);font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:4px 12px 3px}
+.bonus-busta .bb-testo{display:grid;gap:4px;padding-top:22px;min-width:0}
+.bonus-busta .bb-testo b{font-family:var(--f-display);font-size:28px;line-height:1.05}
+.bonus-busta .bb-testo span{font-family:var(--f-label);font-size:15px;color:var(--muted)}
+.bonus-busta .fb{position:relative;top:auto;right:auto;width:120px;grid-column:2;grid-row:1}
+.bonus-busta .lucchetto{width:22px;height:22px;color:var(--muted);grid-column:2;grid-row:1;justify-self:end;align-self:end}
+.bonus-busta.sigillata .fb{opacity:.85}
+@media (max-width:520px){.bonus-busta .fb{width:88px}.bonus-busta .bb-testo b{font-size:24px}}
+.giorno-card.bonus{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
+.giorno-card.bonus .gn{color:var(--accent)}

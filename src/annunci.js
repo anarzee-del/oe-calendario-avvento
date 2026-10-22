@@ -4,6 +4,7 @@
 import { editionDays, romeNow, addDays, weekday } from "./time.js";
 import { premiEstratti, contaLettere } from "./gioco.js";
 import { assegnazioniPerGiorno, inPalio } from "./donazioni.js";
+import { statoBonus } from "./bonus.js";
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
@@ -136,7 +137,20 @@ export async function giroAnnunci(env, ed, oggi = romeNow().date) {
     if (await annuncia(env, ed.year, `apertura-${oggiG.n}`, msgApertura(env, ed, oggiG, row, palio))) fatti.push(`apertura-${oggiG.n}`);
   }
 
-  // 4. il giorno di Natale, l'albero con le lettere
+  // 4. il capitolo bonus, quando si apre
+  const sb = statoBonus(ed, oggi);
+  if (sb?.aperto) {
+    const row = await env.DB.prepare("SELECT titolo, img_ver FROM days WHERE edition=? AND n=0").bind(ed.year).first();
+    const e = {
+      title: "Il capitolo bonus è aperto!",
+      description: `${sb.raggiunto ? `La community ha ritrovato ${sb.traguardo} lettere e ` : ""}Tullio ha una storia in più per tutti${row?.titolo && row.titolo !== "Capitolo bonus" ? `: **${row.titolo}**` : ""}. [Leggila qui](${env.BASE_URL}/#bonus)`,
+      url: `${env.BASE_URL}/#bonus`, color: COLORE,
+    };
+    if (row?.img_ver) e.image = { url: `${env.BASE_URL}/api/img/0/full?v=${row.img_ver}` };
+    if (await annuncia(env, ed.year, "bonus", { embeds: [e] })) fatti.push("bonus");
+  }
+
+  // 5. il giorno di Natale, l'albero con le lettere
   if (oggi === ed.fine) {
     const r = await env.DB.prepare("SELECT COUNT(*) AS c FROM messaggi WHERE edition=? AND stato='ok'").bind(ed.year).first();
     if (await annuncia(env, ed.year, "albero", msgAlbero(env, r?.c || 0))) fatti.push("albero");
@@ -155,6 +169,7 @@ async function segnaPassato(env, ed, oggi) {
   const lettere = await contaLettere(env, ed.year);
   for (const t of JSON.parse(ed.tappe || "[]")) if (lettere >= t.s) add(`tappa-${t.s}`);
   if (oggi > ed.fine) add("albero");
+  if (statoBonus(ed, oggi)?.aperto) add("bonus");
   if (stmts.length) await env.DB.batch(stmts);
 }
 

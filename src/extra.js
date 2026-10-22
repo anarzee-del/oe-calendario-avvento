@@ -136,7 +136,7 @@ export async function handleExtra(req, env, url, user, ed, oggi) {
       ).bind(nuovo, sposta(ed.inizio), sposta(ed.fine), sposta(ed.consegna_da), sposta(ed.consegna_a),
         (ed.sottotitolo || "").replace(String(ed.year), String(nuovo)), sposta(ed.donazioni_fino), ed.year));
       stmts.push(env.DB.prepare(
-        `INSERT INTO days(edition,n,tipo,etichetta,titolo) SELECT ?, n, tipo, etichetta, 'Capitolo ' || n FROM days WHERE edition=?`
+        `INSERT INTO days(edition,n,tipo,etichetta,titolo) SELECT ?, n, tipo, etichetta, CASE WHEN n = 0 THEN 'Capitolo bonus' ELSE 'Capitolo ' || n END FROM days WHERE edition=?`
       ).bind(nuovo, ed.year));
     }
     stmts.push(env.DB.prepare("UPDATE editions SET stato='archiviata' WHERE year=?").bind(ed.year));

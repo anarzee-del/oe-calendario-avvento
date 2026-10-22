@@ -1,11 +1,12 @@
 // Calendario dell'Avvento di Our Elysion — worker principale (API)
 import { ensureSchema, currentEdition } from "./db.js";
 import { handleAuth, currentUser } from "./auth.js";
-import { romeNow, editionDays, dayState, weekday, isIsoDate } from "./time.js";
+import { romeNow, editionDays, dayState, weekday, isIsoDate, addDays } from "./time.js";
 import { handleDonazioni, assegnazioniPerGiorno, inPalio, isAiutante } from "./donazioni.js";
 import { handleGioco, estraiArretrati, giorniEstratti, contaLettere, premiEstratti } from "./gioco.js";
 import { handleExtra } from "./extra.js";
 import { handleAnnunci, giroAnnunci } from "./annunci.js";
+import { statoBonus, segnaTraguardo } from "./bonus.js";
 
 const JSONH = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: JSONH });
@@ -23,6 +24,8 @@ export default {
     const ed = await currentEdition(env);
     const res = await estraiArretrati(env, ed);
     if (res.length) console.log("Estrazioni eseguite", JSON.stringify(res));
+    // rete di sicurezza per il traguardo del capitolo bonus (data: il giorno appena chiuso)
+    await segnaTraguardo(env, ed, await contaLettere(env, ed.year), addDays(romeNow().date, -1)).catch((e) => console.error(e));
     // poi gli annunci su Discord (vincitori, busta del giorno, traguardi), se lo staff li ha accesi
     const ann = await giroAnnunci(env, ed).catch((e) => { console.error(e); return []; });
     if (ann.length) console.log("Annunci inviati", ann.join(", "));
@@ -129,13 +132,28 @@ async function route(req, env, url, user, ed, ctx) {
   if (p.startsWith("/api/admin/")) {
     if (!isAdmin) return err(403, "Area riservata allo staff");
 
+    if (p === "/api/admin/bonus" && m === "PUT") {
+      const b = await readJson(req);
+      if (!b) return err(400, "Dati non validi");
+      if ("modo" in b) await env.DB.prepare("UPDATE editions SET bonus_modo=? WHERE year=?").bind(b.modo === "fine" ? "fine" : "dopo", ed.year).run();
+      if ("forzato" in b) {
+        await env.DB.prepare("UPDATE editions SET bonus_forzato=? WHERE year=?").bind(b.forzato ? 1 : 0, ed.year).run();
+        ed.bonus_forzato = b.forzato ? 1 : 0;
+        if (b.forzato) await giroAnnunci(env, ed).catch((e) => console.error(e)); // annuncio su Discord, se acceso
+      }
+      return json({ ok: true });
+    }
+
     if (p === "/api/admin/giorni" && m === "GET") {
       const { results } = await env.DB.prepare(
         "SELECT edition,n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,stato_capitolo,img_ver,updated_at,updated_by FROM days WHERE edition=? ORDER BY n"
       ).bind(ed.year).all();
       const days = editionDays(ed);
       const premi = await assegnazioniPerGiorno(env, ed.year);
+      const row0 = results.find((x) => x.n === 0) || { n: 0 };
+      const lettereOra = await contaLettere(env, ed.year);
       return json({
+        bonus: { ...row0, n: 0, lettere: lettereOra, ...(statoBonus(ed, today(url, user, env)) || {}) },
         giorni: days.map((d) => {
           const row = results.find((x) => x.n === d.n) || { n: d.n };
           return { ...row, data: d.data, wd: weekday(d.data), risposte: JSON.parse(row.risposte || "[]"), in_palio: inPalio(premi.get(d.n)) };
@@ -145,10 +163,10 @@ async function route(req, env, url, user, ed, ctx) {
 
     if ((r = p.match(/^\/api\/admin\/giorno\/(\d{1,2})$/)) && m === "PUT") {
       const n = Number(r[1]);
-      if (n < 1 || n > editionDays(ed).length) return err(404, "Giorno inesistente");
+      if (n < 0 || n > editionDays(ed).length) return err(404, "Giorno inesistente");
       const b = await readJson(req);
       if (!b) return err(400, "Dati non validi");
-      const tipo = b.tipo === "sfida" ? "sfida" : "sorteggio";
+      const tipo = n === 0 ? "bonus" : b.tipo === "sfida" ? "sfida" : "sorteggio";
       const risposte = Array.isArray(b.risposte) ? b.risposte.slice(0, 6).map((x) => str(x, 200)) : [];
       const giusta = Number.isInteger(b.giusta) && b.giusta >= 0 && b.giusta < risposte.length ? b.giusta : null;
       if (tipo === "sfida" && b.stato_capitolo === "pronto") {
@@ -282,7 +300,21 @@ async function stato(env, url, user, ed, ctx) {
     return out;
   });
 
+  // capitolo bonus
+  let bonus = null;
+  const sb = chiuso ? null : statoBonus(ed, oggi);
+  if (sb) {
+    const row0 = results.find((x) => x.n === 0) || {};
+    bonus = { traguardo: sb.traguardo, raggiunto: sb.raggiunto, apre_il: sb.apre_il, aperto: sb.aperto };
+    if (sb.aperto || isAdmin) {
+      bonus.titolo = row0.titolo || "";
+      if (row0.img_ver) bonus.francobollo = `/api/img/0/thumb?v=${row0.img_ver}`;
+      bonus.fuoco = row0.fuoco || "centro";
+    }
+  }
+
   return json({
+    bonus,
     utente: user ? { ...publicUser(user), aiutante: !!rAiut?.results?.length } : null,
     edizione: publicEdition(ed),
     oggi, prima, dopo, chiuso,
@@ -294,6 +326,7 @@ async function stato(env, url, user, ed, ctx) {
 }
 
 async function giorno(env, url, user, ed, n) {
+  if (n === 0) return giornoBonus(env, url, user, ed);
   const days = editionDays(ed);
   const d = days[n - 1];
   if (!d) return err(404, "Casella inesistente");
@@ -328,11 +361,27 @@ async function giorno(env, url, user, ed, n) {
   return json(out);
 }
 
-async function immagine(env, url, user, ed, n, kind) {
-  const d = editionDays(ed)[n - 1];
-  if (!d) return new Response("Not found", { status: 404 });
+async function giornoBonus(env, url, user, ed) {
   const isAdmin = user?.role === "admin";
-  const aperta = romeNow().date >= d.data;
+  const sb = statoBonus(ed, today(url, user, env));
+  if (!sb) return err(404, "Quest'anno non c'è un capitolo bonus");
+  if (!sb.aperto && !isAdmin) return err(403, `Il capitolo bonus si apre quando la community ritrova ${sb.traguardo} lettere`);
+  const row = await env.DB.prepare("SELECT titolo,testo,fuoco,img_ver FROM days WHERE edition=? AND n=0").bind(ed.year).first() || {};
+  return json({
+    n: 0, bonus: true, ...sb, titolo: row.titolo || "Capitolo bonus", testo: row.testo || "",
+    immagine: row.img_ver ? `/api/img/0/full?v=${row.img_ver}` : null,
+  });
+}
+
+async function immagine(env, url, user, ed, n, kind) {
+  const isAdmin = user?.role === "admin";
+  let aperta;
+  if (n === 0) aperta = !!statoBonus(ed, romeNow().date)?.aperto;
+  else {
+    const d = editionDays(ed)[n - 1];
+    if (!d) return new Response("Not found", { status: 404 });
+    aperta = romeNow().date >= d.data;
+  }
   if (!aperta && !isAdmin) return new Response("Forbidden", { status: 403 });
   // Copia in cache vicino al giocatore: il database si legge una volta sola per versione dell'immagine.
   // Il permesso è già stato controllato sopra, quindi la cache non scavalca il blocco delle buste future.

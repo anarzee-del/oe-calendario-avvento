@@ -117,6 +117,47 @@ function renderTesta() {
   }
 }
 
+/* ---------- capitolo bonus ---------- */
+function bustaBonus() {
+  const b = S.dati.bonus;
+  if (!b) return "";
+  const fb = b.francobollo;
+  let nota;
+  if (b.aperto) nota = b.titolo && b.titolo !== "Capitolo bonus" ? esc(b.titolo) : "Aperto! Tullio ha una storia in più per tutti.";
+  else if (b.raggiunto) nota = `Traguardo raggiunto! Si apre ${giorniTra(S.dati.oggi, b.apre_il) <= 1 ? "a mezzanotte" : "il " + dataLunga(b.apre_il) + " a mezzanotte"}.`;
+  else nota = `Si apre quando la community ritrova ${b.traguardo} lettere. Ora siamo a ${S.dati.lettere}.`;
+  return `<a class="bonus-busta ${b.aperto ? "aperta" : "sigillata"}" href="#bonus" aria-label="Capitolo bonus: ${esc(nota)}">
+    <span class="bb-nastro">Capitolo bonus</span>
+    ${fb ? `<span class="fb" aria-hidden="true"><span class="fb-in" style="display:block"><img src="${esc(fb)}" alt="" loading="lazy" style="object-position:${FP[b.fuoco] || "50%"} 50%"></span></span>` : ""}
+    <span class="bb-testo"><b>${b.aperto ? "Una lettera in più" : "Una lettera speciale"}</b><span>${nota}</span></span>
+    ${b.aperto ? "" : ICO.lucchetto}
+  </a>`;
+}
+
+async function vBonus() {
+  const v = $("#vista");
+  v.innerHTML = `<p class="caricamento">Apro la busta…</p>`;
+  let g;
+  const torna = `<a class="indietro" href="#calendario">← Torna al calendario</a>`;
+  try { g = await api(conSim("/api/giorno/0")); }
+  catch (e) {
+    const b = S.dati.bonus;
+    v.innerHTML = `${torna}<div class="pannello sigillata-box"><span class="label">Capitolo bonus</span>
+      <h2>Questa lettera è ancora sigillata</h2><p style="color:var(--muted)">${b?.raggiunto ? `La community ha raggiunto il traguardo: si apre il ${dataLunga(b.apre_il)} a mezzanotte.` : `Si apre quando la community ritrova ${b?.traguardo || ""} lettere. Ogni partecipazione è una lettera: ora siamo a ${S.dati.lettere}.`}</p></div>`;
+    return;
+  }
+  if (S.vista !== "bonus") return;
+  const testo = paragrafi(g.testo);
+  const anteprima = !g.aperto ? `<div class="avviso"><span class="stato warn">Anteprima staff</span><p>Il capitolo bonus è ancora sigillato per i giocatori${g.raggiunto ? `: si apre il ${dataLunga(g.apre_il)}` : ""}. Lo vedi solo tu.</p></div>` : "";
+  v.innerHTML = `${torna}${anteprima}
+  <article class="capitolo" style="max-width:72ch">
+    <span class="label">Capitolo bonus · ${g.traguardo} lettere ritrovate</span>
+    <h2>${esc(g.titolo)}</h2>
+    ${g.immagine ? `<img class="illustrazione" src="${esc(g.immagine)}" alt="Immagine del capitolo bonus">` : ""}
+    <div class="storia">${testo.length ? testo.map((p) => `<p>${esc(p)}</p>`).join("") : `<p class="vuoto">Il testo del capitolo bonus non è ancora stato scritto.</p>`}</div>
+  </article>`;
+}
+
 /* ---------- busta ---------- */
 function busta(g) {
   const st = g.stato;
@@ -175,6 +216,7 @@ function vCalendario() {
   <div class="cal-head"><h2 style="text-transform:capitalize">${esc(mese)}</h2>
     <div class="legenda"><span><i class="dot" style="background:var(--accent)"></i>Oggi</span><span><i class="dot" style="background:var(--primary)"></i>Giorno di sfida</span>${connesso() ? `<span><i class="dot" style="background:var(--ok)"></i>Hai partecipato</span>` : ""}</div></div>
   <div class="griglia">${d.giorni.map(busta).join("")}</div>
+  ${bustaBonus()}
   <div class="sotto">${pannelloCome()}
     <section class="pannello" id="box-messaggi"><h3>Un messaggio per la community</h3><p class="sub">Caricamento…</p></section>
   </div>`;
@@ -327,14 +369,21 @@ async function riempiStaff() {
   if (S.staffSez === "partecipanti") return riempiPartecipanti();
   if (S.staffSez === "edizioni") return riempiEdizioni();
   if (S.staffSez === "annunci") return riempiAnnunci();
-  try { S.adminGiorni = (await api("/api/admin/giorni")).giorni; }
+  try { const r = await api("/api/admin/giorni"); S.adminGiorni = r.giorni; S.adminBonus = r.bonus; }
   catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
-  corpo.innerHTML = S.staffGiorno ? editorGiorno(S.adminGiorni.find((g) => g.n === S.staffGiorno)) : listaGiorni();
+  corpo.innerHTML = S.staffGiorno === null ? listaGiorni() : editorGiorno(giornoAdmin(S.staffGiorno));
 }
 
 const pill = (c, t) => `<span class="stato ${c}">${t}</span>`;
 const PILL_CAP = { pronto: ["ok", "Pronto"], bozza: ["warn", "Bozza"], manca: ["err", "Da scrivere"] };
 
+const giornoAdmin = (n) => (n === 0 ? S.adminBonus : S.adminGiorni.find((x) => x.n === n));
+function statoBonusStaff(b) {
+  if (b.forzato) return ["ok", "Aperto a mano"];
+  if (b.aperto) return ["ok", "Aperto"];
+  if (b.raggiunto) return ["acc", `Si apre il ${dataBreve(b.apre_il)}`];
+  return ["", "Sigillato"];
+}
 function listaGiorni() {
   const g = S.adminGiorni;
   const pronti = g.filter((x) => x.stato_capitolo === "pronto").length;
@@ -347,17 +396,25 @@ function listaGiorni() {
       <span class="mini">${x.img_ver ? `<img src="/api/img/${x.n}/thumb?v=${x.img_ver}" alt="" loading="lazy">` : ""}</span>
       <span class="gt"><b>${esc(x.titolo || "Senza titolo")}</b><span class="fila">${pill(c, t)}${x.in_palio?.length ? "" : pill("warn", "Premi da abbinare")}${x.tipo === "sfida" ? pill("", "Sfida" + (x.etichetta ? " · " + esc(x.etichetta) : "")) : ""}</span><span class="aiuto">${x.in_palio?.length ? "In palio: " + x.in_palio.map((c) => esc(c.categoria) + (c.vincitori > 1 ? " ×" + c.vincitori : "")).join(", ") : ""}</span></span>
       <button class="btn sec" data-staffday="${x.n}">Modifica</button></div>`;
-  }).join("")}</div>`;
+  }).join("")}${S.adminBonus?.traguardo ? (() => {
+    const b = S.adminBonus, [c, t] = PILL_CAP[b.stato_capitolo] || PILL_CAP.manca, [c2, t2] = statoBonusStaff(b);
+    return `<div class="giorno-card bonus">
+      <span class="gn">★<small>Bonus</small></span>
+      <span class="mini">${b.img_ver ? `<img src="/api/img/0/thumb?v=${b.img_ver}" alt="" loading="lazy">` : ""}</span>
+      <span class="gt"><b>${esc(b.titolo || "Capitolo bonus")}</b><span class="fila">${pill(c, t)}${pill(c2, t2)}</span><span class="aiuto">${b.lettere ?? 0} lettere su ${b.traguardo} · ${b.modo === "fine" ? "si apre con l'ultima busta" : "si apre la mezzanotte dopo il traguardo"}</span></span>
+      <button class="btn sec" data-staffday="0">Modifica</button></div>`;
+  })() : ""}</div>`;
 }
 
 function editorGiorno(g) {
   const ris = [...(g.risposte || [])];
   while (ris.length < 4) ris.push("");
   const sfida = g.tipo === "sfida";
+  const bonus = g.n === 0;
   return `<button class="btn quieto" data-act="lista-giorni">← Tutti i giorni</button>
   <form id="form-giorno" data-n="${g.n}" style="margin-top:10px">
-    <span class="label">Casella ${g.n} · ${GG_LUNGO[g.wd]} ${dataLunga(g.data)}</span>
-    <h2 style="margin:4px 0 16px">${esc(g.titolo || "Capitolo " + g.n)}</h2>
+    <span class="label">${bonus ? `Capitolo bonus · traguardo delle ${g.traguardo} lettere` : `Casella ${g.n} · ${GG_LUNGO[g.wd]} ${dataLunga(g.data)}`}</span>
+    <h2 style="margin:4px 0 16px">${esc(g.titolo || (bonus ? "Capitolo bonus" : "Capitolo " + g.n))}</h2>
     <div class="pannello" style="display:grid;gap:4px">
       <div class="due">
         <div class="campo"><label for="e-titolo">Titolo del capitolo</label><input type="text" id="e-titolo" maxlength="120" value="${esc(g.titolo)}"></div>
@@ -379,7 +436,7 @@ function editorGiorno(g) {
       </div>
     </div>
 
-    <div class="pannello" style="margin-top:16px">
+    ${bonus ? pannelloBonus(g) : `<div class="pannello" style="margin-top:16px">
       <h3 style="font-size:22px;margin-bottom:10px">Il giorno</h3>
       <div class="due">
         <div class="campo"><label for="e-tipo">Tipo di giorno</label><select id="e-tipo"><option value="sorteggio" ${!sfida ? "selected" : ""}>Sorteggio</option><option value="sfida" ${sfida ? "selected" : ""}>Sfida</option></select></div>
@@ -392,15 +449,34 @@ function editorGiorno(g) {
           <div class="risposte-ed">${ris.map((r, i) => `<div class="risposta-ed"><input type="radio" name="giusta" value="${i}" id="g${i}" ${g.giusta === i ? "checked" : ""} aria-label="Risposta ${i + 1} giusta"><input type="text" id="r${i}" maxlength="200" value="${esc(r)}" placeholder="Risposta ${i + 1}"></div>`).join("")}</div>
         </fieldset>
       </div>
-    </div>
+    </div>`}
 
     <div class="salva-barra">
       <button class="btn" type="submit">Salva</button>
-      <a class="btn sec" href="#casella-${g.n}" data-act="anteprima" data-data="${g.data}">Anteprima</a>
+      ${bonus ? `<a class="btn sec" href="#bonus">Anteprima</a>` : `<a class="btn sec" href="#casella-${g.n}" data-act="anteprima" data-data="${g.data}">Anteprima</a>`}
       <span class="modificato" id="ed-mod" hidden>Modifiche non salvate</span>
       ${g.updated_by ? `<span class="aiuto">Ultima modifica: ${esc(g.updated_by)}</span>` : ""}
     </div>
   </form>`;
+}
+
+function pannelloBonus(b) {
+  const stato = b.forzato ? "Aperto a mano dallo staff: i giocatori lo vedono già."
+    : b.aperto ? `Aperto: la community ha raggiunto le ${b.traguardo} lettere il ${dataLunga(b.raggiunto_il)}.`
+    : b.raggiunto ? `Traguardo raggiunto il ${dataLunga(b.raggiunto_il)}: si apre il ${dataLunga(b.apre_il)} a mezzanotte.`
+    : `Traguardo non ancora raggiunto: ${b.lettere ?? 0} lettere su ${b.traguardo}.`;
+  return `<div class="pannello" style="margin-top:16px;display:grid;gap:12px">
+    <h3 style="font-size:22px">Quando si apre</h3>
+    <p class="sub" style="margin:0">${stato}</p>
+    <div class="campo" style="margin:0"><label for="b-modo">Si apre…</label><select id="b-modo" data-act-change="bonus-modo">
+      <option value="dopo" ${b.modo !== "fine" ? "selected" : ""}>la mezzanotte dopo il traguardo</option>
+      <option value="fine" ${b.modo === "fine" ? "selected" : ""}>a fine calendario, con l'ultima busta</option>
+    </select><span class="aiuto">Si salva da sola. Il traguardo è l'ultimo di Testi, date e regole. Se la community lo raggiunge proprio l'ultimo giorno, il capitolo si apre la mezzanotte dopo.</span></div>
+    <div class="fila">${b.forzato
+      ? `<button type="button" class="btn quieto pericolo-testo" data-act="bonus-forza" data-v="0">Richiudi (torna alla regola del traguardo)</button>`
+      : b.aperto ? "" : `<button type="button" class="btn sec" data-act="bonus-forza" data-v="1">Apri subito per tutti</button>`}</div>
+    <p class="aiuto" style="margin:0">"Apri subito" serve se a fine calendario il traguardo non è stato raggiunto e volete regalarlo comunque. Con gli annunci su Discord accesi, parte anche l'annuncio.</p>
+  </div>`;
 }
 
 function formTesti() {
@@ -472,7 +548,7 @@ async function francobollo(img, fuoco) {
   return toBlob(c, 0.8);
 }
 function aggiornaImgEditor(n, ver) {
-  const g = S.adminGiorni.find((x) => x.n === n); if (g) g.img_ver = ver;
+  const g = giornoAdmin(n); if (g) g.img_ver = ver;
   $("#ed-full").innerHTML = ver ? `<img src="/api/img/${n}/full?v=${ver}" alt="Immagine attuale">` : "Nessuna immagine";
   $("#ed-fb").innerHTML = ver ? `<span class="fb"><span class="fb-in" style="display:block"><img src="/api/img/${n}/thumb?v=${ver}" alt="Francobollo"></span></span>` : "";
   const rm = $("#btn-rimuovi"); if (rm) rm.hidden = !ver;
@@ -488,11 +564,12 @@ async function inviaImmagine(n, full, thumb) {
 async function render() {
   const v = $("#vista");
   if (S.vista === "casella") { renderTesta(); return vCasella(S.giorno); }
-  v.innerHTML = S.vista === "regolamento" ? vRegolamento() : ["aiutanti", "albo", "posta"].includes(S.vista) ? `<p class="caricamento">Caricamento…</p>` : S.vista === "profilo" ? vProfilo() : S.vista === "staff" ? await vStaff() : vCalendario();
+  v.innerHTML = S.vista === "regolamento" ? vRegolamento() : ["aiutanti", "albo", "posta", "bonus"].includes(S.vista) ? `<p class="caricamento">Caricamento…</p>` : S.vista === "profilo" ? vProfilo() : S.vista === "staff" ? await vStaff() : vCalendario();
   if (S.vista === "staff") riempiStaff();
   if (S.vista === "aiutanti") vAiutanti();
   if (S.vista === "albo") vAlbo();
   if (S.vista === "posta") vPosta();
+  if (S.vista === "bonus") vBonus();
   if (S.vista === "calendario" && !S.dati.chiuso) boxMessaggi();
   if (S.vista === "profilo") mioDicembre();
 }
@@ -500,7 +577,7 @@ async function render() {
 function leggiHash() {
   const h = (location.hash || "").slice(1);
   if (/^casella-\d+$/.test(h)) { S.vista = "casella"; S.giorno = Number(h.split("-")[1]); }
-  else if (["regolamento", "profilo", "staff", "calendario", "aiutanti", "albo", "posta"].includes(h)) S.vista = h;
+  else if (["regolamento", "profilo", "staff", "calendario", "aiutanti", "albo", "posta", "bonus"].includes(h)) S.vista = h;
   else S.vista = "calendario";
 }
 window.addEventListener("hashchange", async () => {
@@ -563,7 +640,7 @@ document.addEventListener("change", async (e) => {
   }
   if (t.id === "e-fuoco") {
     const n = Number($("#form-giorno").dataset.n);
-    const g = S.adminGiorni.find((x) => x.n === n);
+    const g = giornoAdmin(n);
     if (!g?.img_ver) return;
     try {
       const img = await caricaImmagine(`/api/img/${n}/full?v=${g.img_ver}`);
@@ -587,10 +664,10 @@ document.addEventListener("submit", async (e) => {
     const giusta = f.querySelector("input[name=giusta]:checked");
     const body = {
       titolo: $("#e-titolo").value, testo: $("#e-testo").value, stato_capitolo: $("#e-stato").value,
-      tipo: $("#e-tipo").value, etichetta: $("#e-etichetta").value, fuoco: $("#e-fuoco").value,
-      domanda: $("#e-domanda").value, risposte: [0, 1, 2, 3].map((i) => $("#r" + i).value), giusta: giusta ? Number(giusta.value) : null,
+      tipo: $("#e-tipo")?.value, etichetta: $("#e-etichetta")?.value || "", fuoco: $("#e-fuoco").value,
+      domanda: $("#e-domanda")?.value || "", risposte: $("#r0") ? [0, 1, 2, 3].map((i) => $("#r" + i).value) : [], giusta: giusta ? Number(giusta.value) : null,
     };
-    try { await putJson(`/api/admin/giorno/${n}`, body); toast(`Casella ${n} salvata`); $("#ed-mod").hidden = true; S.dati = await api(conSim("/api/stato")); }
+    try { await putJson(`/api/admin/giorno/${n}`, body); toast(n === 0 ? "Capitolo bonus salvato" : `Casella ${n} salvata`); $("#ed-mod").hidden = true; S.dati = await api(conSim("/api/stato")); }
     catch (err) { toast(err.message); }
   }
   if (f.id === "form-testi") {
@@ -1273,7 +1350,7 @@ document.addEventListener("keydown", (e) => {
 /* ---------- annunci su Discord ---------- */
 const NOME_ANNUNCIO = (k) => {
   const [t, n] = k.split("-");
-  return { apertura: `Busta del giorno ${n} aperta`, vincitori: `Vincitori del giorno ${n}`, tappa: `Traguardo di ${n} lettere`, albero: "Albero delle lettere" }[t] || k;
+  return { bonus: "Capitolo bonus aperto", apertura: `Busta del giorno ${n} aperta`, vincitori: `Vincitori del giorno ${n}`, tappa: `Traguardo di ${n} lettere`, albero: "Albero delle lettere" }[t] || k;
 };
 async function riempiAnnunci() {
   const corpo = $("#staff-corpo");
@@ -1301,6 +1378,18 @@ document.addEventListener("click", async (e) => {
     if (a.dataset.act === "annunci-attivi") { await putJson("/api/admin/annunci", { attivi: a.dataset.v === "1" }); toast(a.dataset.v === "1" ? "Annunci accesi" : "Annunci spenti"); }
   } catch (err) { toast(err.message); }
   riempiAnnunci();
+});
+
+document.addEventListener("click", async (e) => {
+  const a = e.target.closest("[data-act='bonus-forza']"); if (!a) return;
+  if (a.dataset.v === "1" && a.dataset.conferma !== "1") { a.dataset.conferma = "1"; a.textContent = "Conferma: apri il capitolo bonus a tutti"; a.classList.add("conferma"); return; }
+  try { await putJson("/api/admin/bonus", { forzato: a.dataset.v === "1" }); toast(a.dataset.v === "1" ? "Capitolo bonus aperto a tutti" : "Capitolo bonus richiuso"); S.dati = await api(conSim("/api/stato")); riempiStaff(); }
+  catch (err) { toast(err.message); }
+});
+document.addEventListener("change", async (e) => {
+  if (e.target.id !== "b-modo") return;
+  try { await putJson("/api/admin/bonus", { modo: e.target.value }); toast("Salvato"); S.dati = await api(conSim("/api/stato")); riempiStaff(); }
+  catch (err) { toast(err.message); }
 });
 
 /* ---------- partecipanti ---------- */
