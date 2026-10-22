@@ -83,7 +83,7 @@ function publicUser(u) {
   return {
     id: u.id, nome: u.pg || u.global_name || u.username, discord: u.global_name || u.username, username: u.username, ruolo: u.role,
     avatar: u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=64` : null,
-    pg: u.pg || "", dc: u.dc || "", mondo: u.mondo || "",
+    pg: u.pg || "", dc: u.dc || "", mondo: u.mondo || "", tester: !!u.tester,
   };
 }
 
@@ -264,7 +264,7 @@ async function stato(env, url, user, ed, ctx) {
   const q = [
     env.DB.prepare("SELECT n,tipo,etichetta,titolo,fuoco,img_ver,stato_capitolo FROM days WHERE edition=?").bind(ed.year),
     env.DB.prepare("SELECT giorno FROM estrazioni WHERE edition=?").bind(ed.year),
-    env.DB.prepare("SELECT COUNT(*) AS c FROM partecipazioni WHERE edition=?").bind(ed.year),
+    env.DB.prepare("SELECT COUNT(*) AS c FROM partecipazioni p JOIN users u ON u.id = p.user_id WHERE p.edition=? AND u.tester=0").bind(ed.year),
     env.DB.prepare("SELECT 1 AS x FROM estrazioni LIMIT 1"),
   ];
   if (user) {

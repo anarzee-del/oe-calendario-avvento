@@ -89,10 +89,15 @@ function renderTesta() {
   const u = d.utente;
   const pm = $("#promemoria");
   const manca = u && !u.pg && u.ruolo !== "admin";
+  if (u?.tester) {
+    pm.hidden = false;
+    pm.innerHTML = `<div class="promemoria prova"><span class="pm-icona" aria-hidden="true">i</span><p><b>Account di prova.</b> Puoi partecipare a tutte le buste per controllare che il sito funzioni, ma non vinci premi, non ricevi Biscotti, non conti nelle lettere della community e i tuoi messaggi a Tullio non vanno sull'albero.</p></div>`;
+  } else {
   pm.hidden = !manca || S.vista === "profilo";
   pm.innerHTML = manca ? `<div class="promemoria"><span class="pm-icona" aria-hidden="true">!</span>
     <p><b>Ultimo passo: dicci chi sei in gioco.</b> Indica il nome del tuo personaggio e il mondo: servono per consegnarti i premi, e sul sito comparirà il nome del personaggio al posto di quello di Discord. Senza, non puoi partecipare alle buste.</p>
     <a class="btn grande" href="#profilo">Completa il profilo</a></div>` : "";
+  }
   $("#utente").innerHTML = u
     ? `<span class="avatar" aria-hidden="true">${u.avatar ? `<img src="${esc(u.avatar)}" alt="">` : esc(u.nome[0] || "?")}</span><span>${esc(u.nome)}${u.aiutante ? SEGNO() : ""}${u.ruolo === "admin" ? " · staff" : ""}</span><button class="esci" data-act="esci">Esci</button>`
     : `<a class="btn-discord" href="/api/auth/login">Entra con Discord</a>`;
@@ -1392,6 +1397,15 @@ document.addEventListener("change", async (e) => {
   catch (err) { toast(err.message); }
 });
 
+document.addEventListener("click", async (e) => {
+  const a = e.target.closest("[data-act='tester']"); if (!a) return;
+  try {
+    await putJson(`/api/admin/extra/partecipante/${a.dataset.id}`, { tester: a.dataset.v === "1" });
+    toast(a.dataset.v === "1" ? "Ora è un account di prova: partecipa ma non vince e non conta" : "Tornato giocatore normale");
+    riempiPartecipanti();
+  } catch (err) { toast(err.message); }
+});
+
 /* ---------- partecipanti ---------- */
 async function riempiPartecipanti() {
   const corpo = $("#staff-corpo");
@@ -1408,15 +1422,15 @@ function disegnaPartecipanti() {
   corpo.innerHTML = `<h2>Partecipanti</h2>
   <p class="intro">Tutti quelli che sono entrati nel sito con Discord. Chi viene escluso non può più partecipare, scrivere a Tullio né vincere; le partecipazioni già fatte restano ma non contano nelle estrazioni.</p>
   <div class="stats">
-    <div class="stat"><b>${tutti.filter((x) => !x.staff).length}</b><span>Iscritti</span></div>
+    <div class="stat"><b>${tutti.filter((x) => !x.staff && !x.tester).length}</b><span>Iscritti</span></div>
     <div class="stat"><b>${senzaProfilo}</b><span>Senza personaggio indicato</span></div>
     <div class="stat"><b>${tutti.filter((x) => x.escluso).length}</b><span>Esclusi</span></div>
   </div>
   <div class="campo" style="max-width:360px"><label for="cerca-part">Cerca per nome o personaggio</label><input type="text" id="cerca-part" value="${esc(S.cercaPart || "")}"></div>
   <div class="doni">${lista.map((x) => `<div class="dono${x.escluso ? " escluso" : ""}">
-    <div class="dono-t"><b style="font-size:20px">${esc(x.nome)} <span class="aiuto">@${esc(x.username)}</span></b><span class="fila">${x.staff ? pill("", "Staff") : ""}${x.escluso ? pill("err", "Escluso") : ""}${!x.staff && !x.pg ? pill("warn", "Profilo incompleto") : ""}</span></div>
+    <div class="dono-t"><b style="font-size:20px">${esc(x.nome)} <span class="aiuto">@${esc(x.username)}</span></b><span class="fila">${x.staff ? pill("", "Staff") : ""}${x.escluso ? pill("err", "Escluso") : ""}${x.tester ? pill("acc", "Account di prova") : ""}${!x.staff && !x.pg ? pill("warn", "Profilo incompleto") : ""}</span></div>
     <p class="aiuto">${x.pg ? `${esc(x.pg)} · ${esc(x.mondo || "")} (${esc(x.dc || "")})` : "Personaggio non indicato"} · ${x.partecipazioni} ${x.partecipazioni === 1 ? "partecipazione" : "partecipazioni"} · ${x.vincite} ${x.vincite === 1 ? "premio" : "premi"}${x.doni ? ` · aiutante (${x.doni})` : ""}${x.last_login ? ` · ultimo accesso ${dataOra(x.last_login)}` : ""}</p>
-    ${x.staff ? "" : `<div class="fila"><button class="btn quieto piccolo ${x.escluso ? "" : "pericolo-testo"}" data-act="escludi" data-id="${x.id}" data-v="${x.escluso ? 0 : 1}">${x.escluso ? "Riammetti" : "Escludi"}</button></div>`}
+    ${x.staff ? "" : `<div class="fila"><button class="btn quieto piccolo ${x.escluso ? "" : "pericolo-testo"}" data-act="escludi" data-id="${x.id}" data-v="${x.escluso ? 0 : 1}">${x.escluso ? "Riammetti" : "Escludi"}</button><button class="btn quieto piccolo" data-act="tester" data-id="${x.id}" data-v="${x.tester ? 0 : 1}">${x.tester ? "Torna giocatore normale" : "Rendi account di prova"}</button></div>`}
   </div>`).join("") || `<p class="prossimamente">Nessuno trovato.</p>`}</div>`;
 }
 

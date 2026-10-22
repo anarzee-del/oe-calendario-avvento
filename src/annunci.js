@@ -152,7 +152,7 @@ export async function giroAnnunci(env, ed, oggi = romeNow().date) {
 
   // 5. il giorno di Natale, l'albero con le lettere
   if (oggi === ed.fine) {
-    const r = await env.DB.prepare("SELECT COUNT(*) AS c FROM messaggi WHERE edition=? AND stato='ok'").bind(ed.year).first();
+    const r = await env.DB.prepare("SELECT COUNT(*) AS c FROM messaggi m JOIN users u ON u.id = m.user_id WHERE m.edition=? AND m.stato='ok' AND u.tester=0").bind(ed.year).first();
     if (await annuncia(env, ed.year, "albero", msgAlbero(env, r?.c || 0))) fatti.push("albero");
   }
   return fatti;

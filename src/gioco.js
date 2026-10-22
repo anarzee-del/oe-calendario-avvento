@@ -38,7 +38,7 @@ export async function estrai(env, ed, n, da = "automatica") {
   const day = await env.DB.prepare("SELECT tipo, giusta FROM days WHERE edition=? AND n=?").bind(ed.year, n).first() || {};
   const { results: part } = await env.DB.prepare(
     `SELECT p.user_id, p.risposta FROM partecipazioni p JOIN users u ON u.id = p.user_id
-     WHERE p.edition=? AND p.giorno=? AND u.escluso=0`
+     WHERE p.edition=? AND p.giorno=? AND u.escluso=0 AND u.tester=0`
   ).bind(ed.year, n).all();
   const { results: vinte } = await env.DB.prepare("SELECT user_id, COUNT(*) AS c FROM vincite WHERE edition=? GROUP BY user_id").bind(ed.year).all();
   const totali = new Map(vinte.map((v) => [v.user_id, v.c]));
@@ -97,7 +97,8 @@ export async function giorniEstratti(env, year) {
 }
 
 export async function contaLettere(env, year) {
-  const r = await env.DB.prepare("SELECT COUNT(*) AS c FROM partecipazioni WHERE edition=?").bind(year).first();
+  // gli account di prova non contano nelle lettere della community
+  const r = await env.DB.prepare("SELECT COUNT(*) AS c FROM partecipazioni p JOIN users u ON u.id = p.user_id WHERE p.edition=? AND u.tester=0").bind(year).first();
   return r?.c || 0;
 }
 
@@ -199,7 +200,7 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
   if (p === "/api/admin/estrazioni" && m === "GET") {
     const assegn = await assegnazioniPerGiorno(env, ed.year);
     const { results: estr } = await env.DB.prepare("SELECT * FROM estrazioni WHERE edition=?").bind(ed.year).all();
-    const { results: conti } = await env.DB.prepare("SELECT giorno, COUNT(*) AS c FROM partecipazioni WHERE edition=? GROUP BY giorno").bind(ed.year).all();
+    const { results: conti } = await env.DB.prepare("SELECT p.giorno, COUNT(*) AS c FROM partecipazioni p JOIN users u ON u.id = p.user_id WHERE p.edition=? AND u.tester=0 GROUP BY p.giorno").bind(ed.year).all();
     const out = [];
     for (const d of editionDays(ed)) {
       const e = estr.find((x) => x.giorno === d.n);
@@ -257,7 +258,7 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
          (SELECT COUNT(DISTINCT v.giorno) FROM vincite v WHERE v.edition=p.edition AND v.user_id=u.id) AS giorni_vinti,
          (SELECT fatto_at FROM biscotti_fatti b WHERE b.edition=p.edition AND b.user_id=u.id) AS fatto_at
        FROM partecipazioni p JOIN users u ON u.id = p.user_id
-       WHERE p.edition=? GROUP BY u.id ORDER BY nome COLLATE NOCASE`
+       WHERE p.edition=? AND u.tester=0 GROUP BY u.id ORDER BY nome COLLATE NOCASE`
     ).bind(ed.year).all();
     const lista = results.map((x) => {
       const consolazione = Math.max(0, x.partecipazioni - x.giorni_vinti) * (ed.biscotti_partecipazione || 0);
@@ -281,7 +282,7 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
     const dono = await env.DB.prepare("SELECT user_id FROM donazioni WHERE id=?").bind(v.donazione_id).first() || {};
     const { results: part } = await env.DB.prepare(
       `SELECT p.user_id, p.risposta FROM partecipazioni p JOIN users u ON u.id = p.user_id
-       WHERE p.edition=? AND p.giorno=? AND u.escluso=0`
+       WHERE p.edition=? AND p.giorno=? AND u.escluso=0 AND u.tester=0`
     ).bind(ed.year, v.giorno).all();
     const { results: vinte } = await env.DB.prepare("SELECT user_id, COUNT(*) AS c FROM vincite WHERE edition=? AND id<>? GROUP BY user_id").bind(ed.year, v.id).all();
     const totali = new Map(vinte.map((x) => [x.user_id, x.c]));

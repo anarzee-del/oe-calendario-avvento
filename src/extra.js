@@ -30,7 +30,7 @@ export async function handleExtra(req, env, url, user, ed, oggi) {
         `SELECT m.testo, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS nome,
            EXISTS(SELECT 1 FROM donazioni d WHERE d.edition=m.edition AND d.user_id=m.user_id AND d.stato='ricevuta' AND d.anonimo=0) AS aiutante
          FROM messaggi m JOIN users u ON u.id = m.user_id
-         WHERE m.edition=? AND m.stato='ok' ORDER BY m.created_at`
+         WHERE m.edition=? AND m.stato='ok' AND u.tester=0 ORDER BY m.created_at`
       ).bind(ed.year).all());
     }
     return json({ ...f, aperti, pubblicata: oggi >= f.pubblici_dal, mio, posta });
@@ -81,20 +81,21 @@ export async function handleExtra(req, env, url, user, ed, oggi) {
   // Partecipanti: tutti gli iscritti con le loro statistiche
   if (p === "/api/admin/extra/partecipanti" && m === "GET") {
     const { results } = await env.DB.prepare(
-      `SELECT u.id, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS nome, u.username, u.pg, u.dc, u.mondo, u.escluso, u.created_at, u.last_login,
+      `SELECT u.id, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS nome, u.username, u.pg, u.dc, u.mondo, u.escluso, u.tester, u.created_at, u.last_login,
          (SELECT COUNT(*) FROM partecipazioni p WHERE p.edition=? AND p.user_id=u.id) AS partecipazioni,
          (SELECT COUNT(*) FROM vincite v WHERE v.edition=? AND v.user_id=u.id) AS vincite,
          (SELECT COUNT(*) FROM donazioni d WHERE d.edition=? AND d.user_id=u.id AND d.stato='ricevuta') AS doni
        FROM users u ORDER BY nome COLLATE NOCASE`
     ).bind(ed.year, ed.year, ed.year).all();
     const admin = new Set(String(env.ADMIN_IDS || "").split(",").map((s) => s.trim()));
-    return json({ partecipanti: results.map((x) => ({ ...x, escluso: !!x.escluso, staff: admin.has(x.id) })) });
+    return json({ partecipanti: results.map((x) => ({ ...x, escluso: !!x.escluso, tester: !!x.tester, staff: admin.has(x.id) })) });
   }
   if ((r = p.match(/^\/api\/admin\/extra\/partecipante\/(\d+)$/)) && m === "PUT") {
     const b = await req.json().catch(() => null);
     const admin = new Set(String(env.ADMIN_IDS || "").split(",").map((s) => s.trim()));
     if (admin.has(r[1])) return err(400, "Non si può escludere un admin");
-    await env.DB.prepare("UPDATE users SET escluso=? WHERE id=?").bind(b?.escluso ? 1 : 0, r[1]).run();
+    if (b && "tester" in b) await env.DB.prepare("UPDATE users SET tester=? WHERE id=?").bind(b.tester ? 1 : 0, r[1]).run();
+    if (b && "escluso" in b) await env.DB.prepare("UPDATE users SET escluso=? WHERE id=?").bind(b.escluso ? 1 : 0, r[1]).run();
     return json({ ok: true });
   }
 

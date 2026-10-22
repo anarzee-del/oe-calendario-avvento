@@ -223,3 +223,5 @@ dialog.foglio-lettera::backdrop{background:rgba(10,24,36,.72)}
 @media (max-width:520px){.bonus-busta .fb{width:88px}.bonus-busta .bb-testo b{font-size:24px}}
 .giorno-card.bonus{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
 .giorno-card.bonus .gn{color:var(--accent)}
+.promemoria.prova{background:color-mix(in srgb,var(--primary) 12%,var(--surface));border-color:var(--primary)}
+.promemoria.prova .pm-icona{background:var(--primary);color:var(--on-primary)}
