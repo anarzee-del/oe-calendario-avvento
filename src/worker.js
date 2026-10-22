@@ -115,8 +115,11 @@ async function route(req, env, url, user, ed, ctx) {
   if (p === "/api/profilo" && m === "PUT") {
     if (!user) return err(401, "Accedi con Discord");
     const b = await readJson(req);
-    const pg = str(b?.pg, 40), dc = str(b?.dc, 10), mondo = str(b?.mondo, 20);
+    // nome come in FFXIV: "Nome Cognome", lettere con apostrofo o trattino, 2-15 caratteri ciascuno
+    const pg = str(b?.pg, 40).replace(/\s+/g, " ").split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    const dc = str(b?.dc, 10), mondo = str(b?.mondo, 20);
     if (!pg) return err(400, "Scrivi il nome del personaggio");
+    if (!/^[A-Za-z'-]{2,15} [A-Za-z'-]{2,15}$/.test(pg)) return err(400, "Scrivi nome e cognome del personaggio come in gioco, per esempio Altea Skysinger");
     if (!["Light", "Chaos"].includes(dc)) return err(400, "Scegli il data center");
     await env.DB.prepare("UPDATE users SET pg=?, dc=?, mondo=? WHERE id=?").bind(pg, dc, mondo, user.id).run();
     return json({ ok: true });

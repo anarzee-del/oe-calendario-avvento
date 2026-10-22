@@ -101,10 +101,11 @@ export async function contaLettere(env, year) {
 }
 
 // Premi di un giorno estratto, con immagine, dettagli e vincitori
-export async function premiEstratti(env, year, n) {
+// staff=true aggiunge il nome utente Discord dei vincitori (solo per l'area staff)
+export async function premiEstratti(env, year, n, staff = false) {
   const assegn = (await assegnazioniPerGiorno(env, year)).get(n) || [];
   const { results: vinc } = await env.DB.prepare(
-    `SELECT v.id, v.assegnazione_id, v.user_id, v.consegnato, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS nome,
+    `SELECT v.id, v.assegnazione_id, v.user_id, v.consegnato, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS nome, u.username,
        EXISTS(SELECT 1 FROM donazioni d WHERE d.edition=v.edition AND d.user_id=v.user_id AND d.stato='ricevuta' AND d.anonimo=0) AS aiutante
      FROM vincite v JOIN users u ON u.id = v.user_id
      WHERE v.edition=? AND v.giorno=? ORDER BY v.id`
@@ -117,7 +118,7 @@ export async function premiEstratti(env, year, n) {
     immagine: a.img_ver ? `/api/img/premio/${a.id}?v=${a.img_ver}` : null,
     offerto: donatorePubblico(a).frase,
     posti: a.vincitori,
-    vincitori: vinc.filter((v) => v.assegnazione_id === a.a_id).map((v) => ({ id: v.user_id, nome: v.nome, vincita: v.id, consegnato: v.consegnato, aiutante: !!v.aiutante })),
+    vincitori: vinc.filter((v) => v.assegnazione_id === a.a_id).map((v) => ({ id: v.user_id, nome: v.nome, ...(staff ? { username: v.username } : {}), vincita: v.id, consegnato: v.consegnato, aiutante: !!v.aiutante })),
   }));
 }
 
@@ -207,7 +208,7 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
         stato: e ? "estratta" : d.data < oggiReale ? "da_estrarre" : d.data === oggiReale ? "in_corso" : "futura",
         eseguita_at: e?.eseguita_at || null, eseguita_da: e?.eseguita_da || null,
         log: e ? JSON.parse(e.log || "[]") : [],
-        premi: e ? await premiEstratti(env, ed.year, d.n) : [],
+        premi: e ? await premiEstratti(env, ed.year, d.n, true) : [],
       });
     }
     const { results: classifica } = await env.DB.prepare(
