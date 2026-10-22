@@ -345,7 +345,7 @@ function listaGiorni() {
     return `<div class="giorno-card">
       <span class="gn">${x.n}<small>${GG[x.wd]} ${dataBreve(x.data)}</small></span>
       <span class="mini">${x.img_ver ? `<img src="/api/img/${x.n}/thumb?v=${x.img_ver}" alt="" loading="lazy">` : ""}</span>
-      <span class="gt"><b>${esc(x.titolo || "Senza titolo")}</b><span class="fila">${pill(c, t)}${x.in_palio?.length ? "" : pill("warn", "Premi da abbinare")}${x.tipo === "sfida" ? pill("", "Sfida" + (x.etichetta ? " · " + esc(x.etichetta) : "")) : ""}</span><span class="aiuto">${x.in_palio?.length ? "In palio: " + x.in_palio.map((c) => esc(c.categoria) + (c.vincitori > 1 ? " ×" + c.vincitori : "")).join(", ") : "Nessun premio assegnato"}</span></span>
+      <span class="gt"><b>${esc(x.titolo || "Senza titolo")}</b><span class="fila">${pill(c, t)}${x.in_palio?.length ? "" : pill("warn", "Premi da abbinare")}${x.tipo === "sfida" ? pill("", "Sfida" + (x.etichetta ? " · " + esc(x.etichetta) : "")) : ""}</span><span class="aiuto">${x.in_palio?.length ? "In palio: " + x.in_palio.map((c) => esc(c.categoria) + (c.vincitori > 1 ? " ×" + c.vincitori : "")).join(", ") : ""}</span></span>
       <button class="btn sec" data-staffday="${x.n}">Modifica</button></div>`;
   }).join("")}</div>`;
 }

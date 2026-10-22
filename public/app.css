@@ -206,3 +206,5 @@ dialog.foglio-lettera::backdrop{background:rgba(10,24,36,.72)}
 .promemoria p{margin:0;font-size:17px}
 .promemoria .btn{grid-column:2;justify-self:start}
 @media (max-width:520px){.promemoria{grid-template-columns:minmax(0,1fr)}.promemoria .btn{grid-column:1;width:100%;justify-content:center}}
+
+.giorno-card .stato{white-space:nowrap}
