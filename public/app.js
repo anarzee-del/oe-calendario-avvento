@@ -195,8 +195,12 @@ function vAttesa() {
     <span class="label">Edizione ${ed.anno}</span>
     <h2>Il calendario si apre il ${dataLunga(ed.inizio)} a mezzanotte</h2>
     <div class="conto"><div><b>${k}</b><span>${k === 1 ? "giorno" : "giorni"} all'apertura</span></div><div><b>${S.dati.giorni.length || giorniTra(ed.inizio, ed.fine) + 1}</b><span>buste da aprire</span></div></div>
-    <p>${connesso() ? "Ci sei! Intanto completa il tuo profilo: indica il personaggio a cui consegnare gli eventuali premi." : "Per partecipare servirà accedere con il tuo account Discord del server Our Elysion."}</p>
-    ${connesso() ? `<a class="btn" href="#profilo">Completa il profilo</a>` : `<a class="btn-discord" href="/api/auth/login">Entra con Discord</a>`}
+    ${(() => {
+      const u = S.dati.utente;
+      if (!u) return `<p>Per partecipare servirà accedere con il tuo account Discord del server Our Elysion.</p><a class="btn-discord" href="/api/auth/login">Entra con Discord</a>`;
+      if (!u.pg && u.ruolo !== "admin") return `<p>Ci sei! Intanto completa il tuo profilo: indica il personaggio a cui consegnare gli eventuali premi.</p><a class="btn" href="#profilo">Completa il profilo</a>`;
+      return `<p>Ci sei, <b>${esc(u.nome)}</b>! Il tuo profilo è pronto: ci vediamo il ${dataLunga(ed.inizio)} per aprire la prima busta. Intanto puoi offrire un premio come aiutante del postino.</p><a class="btn sec" href="#aiutanti">Gli aiutanti del postino</a>`;
+    })()}
     ${connesso() ? "" : NOTA_LOGIN}
   </div>
   <div class="sotto">${pannelloCome()}</div>`;
