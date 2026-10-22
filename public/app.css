@@ -198,3 +198,11 @@ dialog.foglio-lettera::backdrop{background:rgba(10,24,36,.72)}
 .timbro-aiutante b{font-family:var(--f-display);font-size:24px;line-height:1.05}
 .timbro-aiutante > span > span{font-family:var(--f-label);font-size:14px;color:var(--muted)}
 .vincitori li .segno{width:15px;height:15px}
+
+/* promemoria: profilo da completare */
+#promemoria{padding-top:20px}
+.promemoria{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 16px;align-items:start;background:color-mix(in srgb,var(--accent) 16%,var(--surface));border:2px solid var(--accent);border-radius:12px;padding:18px 20px}
+.promemoria .pm-icona{width:40px;height:40px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-family:var(--f-display);font-weight:800;font-size:26px}
+.promemoria p{margin:0;font-size:17px}
+.promemoria .btn{grid-column:2;justify-self:start}
+@media (max-width:520px){.promemoria{grid-template-columns:minmax(0,1fr)}.promemoria .btn{grid-column:1;width:100%;justify-content:center}}

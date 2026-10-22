@@ -6,7 +6,8 @@ import { giroAnnunci } from "./annunci.js";
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
 const err = (status, messaggio) => json({ errore: messaggio }, status);
-const nomeUtente = (u) => u.global_name || u.username || "?";
+// nome mostrato sul sito: il personaggio, se indicato, altrimenti il nome Discord
+const nomeUtente = (u) => u.pg || u.global_name || u.username || "?";
 
 function randomInt(max) {
   const a = new Uint32Array(1);
@@ -103,7 +104,7 @@ export async function contaLettere(env, year) {
 export async function premiEstratti(env, year, n) {
   const assegn = (await assegnazioniPerGiorno(env, year)).get(n) || [];
   const { results: vinc } = await env.DB.prepare(
-    `SELECT v.id, v.assegnazione_id, v.user_id, v.consegnato, COALESCE(u.global_name, u.username) AS nome,
+    `SELECT v.id, v.assegnazione_id, v.user_id, v.consegnato, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS nome,
        EXISTS(SELECT 1 FROM donazioni d WHERE d.edition=v.edition AND d.user_id=v.user_id AND d.stato='ricevuta' AND d.anonimo=0) AS aiutante
      FROM vincite v JOIN users u ON u.id = v.user_id
      WHERE v.edition=? AND v.giorno=? ORDER BY v.id`
@@ -210,7 +211,7 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
       });
     }
     const { results: classifica } = await env.DB.prepare(
-      `SELECT u.id, COALESCE(u.global_name, u.username) AS nome, COUNT(v.id) AS vinti
+      `SELECT u.id, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS nome, COUNT(v.id) AS vinti
        FROM vincite v JOIN users u ON u.id = v.user_id WHERE v.edition=? GROUP BY u.id ORDER BY vinti DESC, nome`
     ).bind(ed.year).all();
     return json({ oggi: oggiReale, tetto: ed.tetto, giorni: out, classifica });
@@ -221,7 +222,7 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
     const { results } = await env.DB.prepare(
       `SELECT v.id, v.giorno, v.a_testa, v.consegnato, v.consegnato_at, v.consegnato_da, v.nota,
          d.tipo, d.descrizione, d.categoria,
-         u.id AS user_id, COALESCE(u.global_name, u.username) AS nome, u.username, u.pg, u.dc, u.mondo
+         u.id AS user_id, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS nome, u.username, u.pg, u.dc, u.mondo
        FROM vincite v JOIN donazioni d ON d.id = v.donazione_id JOIN users u ON u.id = v.user_id
        WHERE v.edition=? ORDER BY u.dc, u.mondo, u.pg COLLATE NOCASE, v.giorno`
     ).bind(ed.year).all();
@@ -248,7 +249,7 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
     const lettere = await contaLettere(env, ed.year);
     const bonus = tappe.filter((t) => lettere >= t.s).reduce((s, t) => s + (t.b || 0), 0);
     const { results } = await env.DB.prepare(
-      `SELECT u.id, COALESCE(u.global_name, u.username) AS nome, u.username,
+      `SELECT u.id, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS nome, u.username,
          COUNT(p.giorno) AS partecipazioni,
          (SELECT COUNT(DISTINCT v.giorno) FROM vincite v WHERE v.edition=p.edition AND v.user_id=u.id) AS giorni_vinti,
          (SELECT fatto_at FROM biscotti_fatti b WHERE b.edition=p.edition AND b.user_id=u.id) AS fatto_at
@@ -291,8 +292,8 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
     const candidati = eleggibili.filter((x) => (totali.get(x.user_id) || 0) === minimo)
       .map((x) => ({ ...x, biglietti: sfida && day.giusta !== null && x.risposta === day.giusta ? Math.max(1, ed.biglietti_sfida || 3) : 1 }));
     const w = pesca(candidati);
-    const prima = await env.DB.prepare("SELECT COALESCE(global_name, username) AS nome FROM users WHERE id=?").bind(v.user_id).first();
-    const dopo = await env.DB.prepare("SELECT COALESCE(global_name, username) AS nome FROM users WHERE id=?").bind(w.user_id).first();
+    const prima = await env.DB.prepare("SELECT COALESCE(NULLIF(pg,''), global_name, username) AS nome FROM users WHERE id=?").bind(v.user_id).first();
+    const dopo = await env.DB.prepare("SELECT COALESCE(NULLIF(pg,''), global_name, username) AS nome FROM users WHERE id=?").bind(w.user_id).first();
     const e = await env.DB.prepare("SELECT log FROM estrazioni WHERE edition=? AND giorno=?").bind(ed.year, v.giorno).first();
     const log = JSON.parse(e?.log || "[]");
     log.push(`Rinuncia di ${prima?.nome || "?"}: riestratto ${dopo?.nome || "?"} (${chi})`);

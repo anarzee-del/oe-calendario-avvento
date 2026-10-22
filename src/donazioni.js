@@ -42,7 +42,7 @@ export function donatorePubblico(d) {
 // Assegnazioni (premi in palio) dell'edizione, raggruppate per giorno
 export async function assegnazioniPerGiorno(env, year) {
   const { results } = await env.DB.prepare(
-    `SELECT d.*, a.id AS a_id, a.giorno AS giorno, a.vincitori, a.a_testa, COALESCE(u.global_name, u.username) AS u_nome
+    `SELECT d.*, a.id AS a_id, a.giorno AS giorno, a.vincitori, a.a_testa, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS u_nome
      FROM assegnazioni a JOIN donazioni d ON d.id = a.donazione_id LEFT JOIN users u ON u.id = d.user_id
      WHERE a.edition=? ORDER BY a.giorno, a.id`
   ).bind(year).all();
@@ -96,7 +96,7 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
   /* ----- pubblico ----- */
   if (p === "/api/aiutanti" && m === "GET") {
     const { results: nomi } = await env.DB.prepare(
-      `SELECT DISTINCT CASE WHEN d.user_id IS NOT NULL THEN COALESCE(u.global_name, u.username) ELSE d.donatore_nome END AS nome
+      `SELECT DISTINCT CASE WHEN d.user_id IS NOT NULL THEN COALESCE(NULLIF(u.pg,''), u.global_name, u.username) ELSE d.donatore_nome END AS nome
        FROM donazioni d LEFT JOIN users u ON u.id = d.user_id
        WHERE d.edition=? AND d.stato='ricevuta' AND d.anonimo=0 AND (d.user_id IS NOT NULL OR d.donatore_nome IS NOT NULL)
        ORDER BY nome COLLATE NOCASE`
@@ -172,12 +172,12 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
 
   if (p === "/api/admin/donazioni" && m === "GET") {
     const { results } = await env.DB.prepare(
-      `SELECT d.*, COALESCE(u.global_name, u.username) AS u_nome, u.username AS u_username, u.pg AS u_pg, u.mondo AS u_mondo
+      `SELECT d.*, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS u_nome, u.username AS u_username, u.pg AS u_pg, u.mondo AS u_mondo
        FROM donazioni d LEFT JOIN users u ON u.id = d.user_id WHERE d.edition=? ORDER BY d.id DESC`
     ).bind(ed.year).all();
     const { results: ass } = await env.DB.prepare("SELECT * FROM assegnazioni WHERE edition=? ORDER BY giorno, id").bind(ed.year).all();
     const { results: utenti } = await env.DB.prepare(
-      "SELECT id, COALESCE(global_name, username) AS nome FROM users ORDER BY nome COLLATE NOCASE"
+      "SELECT id, COALESCE(NULLIF(pg,''), global_name, username) AS nome FROM users ORDER BY nome COLLATE NOCASE"
     ).all();
     const estratti = await giorniEstratti(env, ed.year);
     return json({

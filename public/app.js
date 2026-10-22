@@ -60,6 +60,12 @@ async function carica() {
   S.dati = await api(conSim("/api/stato"));
   renderTesta();
   render();
+  // appena entrati senza personaggio: porta la scheda del profilo in vista, sotto la testata
+  const u = S.dati.utente;
+  if (!S.scorsoProfilo && S.vista === "profilo" && u && !u.pg && u.ruolo !== "admin") {
+    S.scorsoProfilo = true;
+    requestAnimationFrame(() => window.scrollTo({ top: Math.max(0, $(".testata").offsetHeight - 10), behavior: "smooth" }));
+  }
 }
 
 /* ---------- testata ---------- */
@@ -81,6 +87,12 @@ function renderTesta() {
   $("#menu").innerHTML = voci.map(([k, t]) => `<a href="#${k}" ${attiva === k ? 'aria-current="page"' : ""}>${t}</a>`).join("");
 
   const u = d.utente;
+  const pm = $("#promemoria");
+  const manca = u && !u.pg && u.ruolo !== "admin";
+  pm.hidden = !manca || S.vista === "profilo";
+  pm.innerHTML = manca ? `<div class="promemoria"><span class="pm-icona" aria-hidden="true">!</span>
+    <p><b>Ultimo passo: dicci chi sei in gioco.</b> Indica il nome del tuo personaggio e il mondo: servono per consegnarti i premi, e sul sito comparirà il nome del personaggio al posto di quello di Discord. Senza, non puoi partecipare alle buste.</p>
+    <a class="btn grande" href="#profilo">Completa il profilo</a></div>` : "";
   $("#utente").innerHTML = u
     ? `<span class="avatar" aria-hidden="true">${u.avatar ? `<img src="${esc(u.avatar)}" alt="">` : esc(u.nome[0] || "?")}</span><span>${esc(u.nome)}${u.aiutante ? SEGNO() : ""}${u.ruolo === "admin" ? " · staff" : ""}</span><button class="esci" data-act="esci">Esci</button>`
     : `<a class="btn-discord" href="/api/auth/login">Entra con Discord</a>`;
@@ -279,9 +291,10 @@ function vProfilo() {
   const u = S.dati.utente;
   if (!u) return `<div class="pannello sigillata-box"><h2>Accedi per vedere il tuo profilo</h2><a class="btn-discord" href="/api/auth/login">Entra con Discord</a></div>`;
   const dc = u.dc || "Light";
-  return `<div class="pagina-h"><span class="label">Il mio profilo</span><h2>${esc(u.nome)}</h2><p>@${esc(u.username)} su Discord</p></div>
+  const nuovo = !u.pg && u.ruolo !== "admin";
+  return `<div class="pagina-h"><span class="label">Il mio profilo</span><h2>${nuovo ? "Benvenuto! Chi sei in gioco?" : esc(u.nome)}</h2><p>${nuovo ? `Hai fatto l'accesso come <b>${esc(u.discord || u.username)}</b> su Discord. Ora indica il tuo personaggio: è il nome che comparirà sul sito e quello a cui consegneremo i premi.` : `@${esc(u.username)} su Discord`}</p></div>
   ${u.aiutante ? `<div class="timbro-aiutante">${SEGNO("grande")}<span><b>Aiutante del postino</b><span>Edizione ${S.dati.edizione.anno} · grazie per aver aiutato Tullio con i premi! Il francobollo compare accanto al tuo nome in tutto il sito.</span></span></div>` : ""}
-  <section class="pannello" style="max-width:560px"><h3>Dove consegnarti i premi</h3><p class="sub">Il personaggio e il mondo su cui ti consegneremo eventuali premi in gioco.</p>
+  <section class="pannello" style="max-width:560px"><h3>Il tuo personaggio</h3><p class="sub">Il nome del personaggio compare sul sito (vincitori, aiutanti, lettere a Tullio) al posto del nome Discord. Il mondo serve per consegnarti i premi in gioco.</p>
     <form id="form-profilo">
       <div class="campo"><label for="pg">Nome del personaggio</label><input type="text" id="pg" maxlength="40" value="${esc(u.pg)}" placeholder="Nome Cognome" autocomplete="off"></div>
       <div class="due"><div class="campo"><label for="dc">Data center</label><select id="dc">${Object.keys(MONDI).map((x) => `<option ${x === dc ? "selected" : ""}>${x}</option>`).join("")}</select></div>
@@ -565,7 +578,7 @@ document.addEventListener("submit", async (e) => {
   e.preventDefault();
   const f = e.target;
   if (f.id === "form-profilo") {
-    try { await putJson("/api/profilo", { pg: $("#pg").value, dc: $("#dc").value, mondo: $("#mondo").value }); toast("Profilo salvato"); await carica(); }
+    try { await putJson("/api/profilo", { pg: $("#pg").value, dc: $("#dc").value, mondo: $("#mondo").value }); const primaVolta = !S.dati.utente?.pg; toast(primaVolta ? "Fatto! Ora puoi partecipare al calendario" : "Profilo salvato"); await carica(); if (primaVolta) location.hash = "calendario"; }
     catch (err) { toast(err.message); }
   }
   if (f.id === "form-giorno") {

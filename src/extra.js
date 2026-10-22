@@ -27,7 +27,7 @@ export async function handleExtra(req, env, url, user, ed, oggi) {
     let posta = [];
     if (pubblici) {
       ({ results: posta } = await env.DB.prepare(
-        `SELECT m.testo, COALESCE(u.global_name, u.username) AS nome,
+        `SELECT m.testo, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS nome,
            EXISTS(SELECT 1 FROM donazioni d WHERE d.edition=m.edition AND d.user_id=m.user_id AND d.stato='ricevuta' AND d.anonimo=0) AS aiutante
          FROM messaggi m JOIN users u ON u.id = m.user_id
          WHERE m.edition=? AND m.stato='ok' ORDER BY m.created_at`
@@ -65,7 +65,7 @@ export async function handleExtra(req, env, url, user, ed, oggi) {
 
   if (p === "/api/admin/extra/messaggi" && m === "GET") {
     const { results } = await env.DB.prepare(
-      `SELECT m.user_id, m.testo, m.stato, m.updated_at, m.moderato_da, COALESCE(u.global_name, u.username) AS nome, u.username
+      `SELECT m.user_id, m.testo, m.stato, m.updated_at, m.moderato_da, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS nome, u.username
        FROM messaggi m JOIN users u ON u.id = m.user_id WHERE m.edition=? ORDER BY m.updated_at DESC`
     ).bind(ed.year).all();
     return json({ ...f, messaggi: results });
@@ -81,7 +81,7 @@ export async function handleExtra(req, env, url, user, ed, oggi) {
   // Partecipanti: tutti gli iscritti con le loro statistiche
   if (p === "/api/admin/extra/partecipanti" && m === "GET") {
     const { results } = await env.DB.prepare(
-      `SELECT u.id, COALESCE(u.global_name, u.username) AS nome, u.username, u.pg, u.dc, u.mondo, u.escluso, u.created_at, u.last_login,
+      `SELECT u.id, COALESCE(NULLIF(u.pg,''), u.global_name, u.username) AS nome, u.username, u.pg, u.dc, u.mondo, u.escluso, u.created_at, u.last_login,
          (SELECT COUNT(*) FROM partecipazioni p WHERE p.edition=? AND p.user_id=u.id) AS partecipazioni,
          (SELECT COUNT(*) FROM vincite v WHERE v.edition=? AND v.user_id=u.id) AS vincite,
          (SELECT COUNT(*) FROM donazioni d WHERE d.edition=? AND d.user_id=u.id AND d.stato='ricevuta') AS doni

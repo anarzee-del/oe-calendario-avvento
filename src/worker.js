@@ -78,7 +78,7 @@ function publicEdition(ed) {
 function publicUser(u) {
   if (!u) return null;
   return {
-    id: u.id, nome: u.global_name || u.username, username: u.username, ruolo: u.role,
+    id: u.id, nome: u.pg || u.global_name || u.username, discord: u.global_name || u.username, username: u.username, ruolo: u.role,
     avatar: u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=64` : null,
     pg: u.pg || "", dc: u.dc || "", mondo: u.mondo || "",
   };

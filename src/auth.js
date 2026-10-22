@@ -125,7 +125,10 @@ export async function handleAuth(req, env, url) {
 
     await upsertUser(env, me);
     const sess = await startSession(env, me, local);
-    return redirect("/", { "Set-Cookie": [sess, cookie(STATE_COOKIE, "", 0, !local)] });
+    // al primo accesso (personaggio non ancora indicato) si va dritti alla scheda del profilo
+    const prof = await env.DB.prepare("SELECT pg FROM users WHERE id=?").bind(me.id).first();
+    const dove = !prof?.pg && !adminIds(env).has(me.id) ? "/#profilo" : "/";
+    return redirect(dove, { "Set-Cookie": [sess, cookie(STATE_COOKIE, "", 0, !local)] });
   }
 
   if (path === "/api/auth/logout" && req.method === "POST") {
@@ -142,7 +145,8 @@ export async function handleAuth(req, env, url) {
     const as = url.searchParams.get("as") === "admin" ? [...adminIds(env)][0] : "1000000000000000" + String(k).padStart(2, "0");
     const fake = { id: as, username: url.searchParams.get("as") === "admin" ? "admin.prova" : (k === 1 ? "giocatore.prova" : `giocatore.${k}`), global_name: null };
     await upsertUser(env, fake);
-    return redirect("/", { "Set-Cookie": await startSession(env, fake, local) });
+    const profDev = await env.DB.prepare("SELECT pg FROM users WHERE id=?").bind(as).first();
+    return redirect(!profDev?.pg && url.searchParams.get("as") !== "admin" ? "/#profilo" : "/", { "Set-Cookie": await startSession(env, fake, local) });
   }
 
   return new Response("Not found", { status: 404 });
