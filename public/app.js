@@ -338,13 +338,14 @@ const PILL_CAP = { pronto: ["ok", "Pronto"], bozza: ["warn", "Bozza"], manca: ["
 function listaGiorni() {
   const g = S.adminGiorni;
   const pronti = g.filter((x) => x.stato_capitolo === "pronto").length;
-  return `<h2>Giorni e capitoli</h2><p class="intro">${pronti} capitoli pronti su ${g.length}. Puoi modificare anche le caselle future: le vedete solo voi dello staff.</p>
+  const conPremi = g.filter((x) => x.in_palio?.length).length;
+  return `<h2>Giorni e capitoli</h2><p class="intro">${pronti} capitoli pronti su ${g.length} · ${conPremi} giorni con i premi abbinati su ${g.length}. Puoi modificare anche le caselle future: le vedete solo voi dello staff.</p>
   <div class="giorni-lista">${g.map((x) => {
     const [c, t] = PILL_CAP[x.stato_capitolo] || PILL_CAP.manca;
     return `<div class="giorno-card">
       <span class="gn">${x.n}<small>${GG[x.wd]} ${dataBreve(x.data)}</small></span>
       <span class="mini">${x.img_ver ? `<img src="/api/img/${x.n}/thumb?v=${x.img_ver}" alt="" loading="lazy">` : ""}</span>
-      <span class="gt"><b>${esc(x.titolo || "Senza titolo")}</b><span class="fila">${pill(c, t)}${x.tipo === "sfida" ? pill("", "Sfida" + (x.etichetta ? " · " + esc(x.etichetta) : "")) : ""}</span><span class="aiuto">${x.in_palio?.length ? "In palio: " + x.in_palio.map((c) => esc(c.categoria) + (c.vincitori > 1 ? " ×" + c.vincitori : "")).join(", ") : "Nessun premio assegnato"}</span></span>
+      <span class="gt"><b>${esc(x.titolo || "Senza titolo")}</b><span class="fila">${pill(c, t)}${x.in_palio?.length ? "" : pill("warn", "Premi da abbinare")}${x.tipo === "sfida" ? pill("", "Sfida" + (x.etichetta ? " · " + esc(x.etichetta) : "")) : ""}</span><span class="aiuto">${x.in_palio?.length ? "In palio: " + x.in_palio.map((c) => esc(c.categoria) + (c.vincitori > 1 ? " ×" + c.vincitori : "")).join(", ") : "Nessun premio assegnato"}</span></span>
       <button class="btn sec" data-staffday="${x.n}">Modifica</button></div>`;
   }).join("")}</div>`;
 }
