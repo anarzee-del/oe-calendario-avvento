@@ -90,7 +90,8 @@ async function giorniEstratti(env, year) {
 export async function handleDonazioni(req, env, url, user, ed, oggi) {
   const p = url.pathname, m = req.method;
   const isAdmin = user?.role === "admin";
-  const aperte = !ed.donazioni_fino || oggi <= ed.donazioni_fino;
+  const prima = !!ed.donazioni_da && oggi < ed.donazioni_da; // raccolta non ancora iniziata
+  const aperte = !prima && (!ed.donazioni_fino || oggi <= ed.donazioni_fino);
   let r;
 
   /* ----- pubblico ----- */
@@ -111,11 +112,12 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
       ).bind(ed.year, user.id).all());
       mie = mie.map((d) => ({ ...d, etichetta: etichettaPremio(d), anonimo: !!d.anonimo }));
     }
-    return json({ aperte, fino: ed.donazioni_fino, intro: ed.aiutanti_intro || "", categorie: CATEGORIE, aiutanti: nomi.map((x) => x.nome).filter(Boolean), anonimi: anon?.c || 0, mie });
+    return json({ aperte, prima, da: ed.donazioni_da || null, fino: ed.donazioni_fino, intro: ed.aiutanti_intro || "", categorie: CATEGORIE, aiutanti: nomi.map((x) => x.nome).filter(Boolean), anonimi: anon?.c || 0, mie });
   }
 
   if (p === "/api/donazioni" && m === "POST") {
     if (!user) return err(401, "Accedi con Discord per offrire un premio");
+    if (prima) return err(400, "La raccolta dei premi non è ancora iniziata");
     if (!aperte) return err(400, "Le offerte per questa edizione sono chiuse");
     const b = await req.json().catch(() => null);
     const v = validaDono(b);
@@ -181,7 +183,7 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
     ).all();
     const estratti = await giorniEstratti(env, ed.year);
     return json({
-      aperte, fino: ed.donazioni_fino, categorie: CATEGORIE,
+      aperte, prima, da: ed.donazioni_da || null, fino: ed.donazioni_fino, categorie: CATEGORIE,
       donazioni: results.map((d) => {
         const mie = ass.filter((a) => a.donazione_id === d.id).map((a) => ({ ...a, etichetta: etichettaATesta(d, a.a_testa), estratto: estratti.has(a.giorno) }));
         const usati = mie.reduce((s, a) => s + a.vincitori * a.a_testa, 0);

@@ -1,6 +1,6 @@
 // Schema del database e dati iniziali. Lo schema si crea da solo alla prima richiesta.
 
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 // Ogni versione contiene solo le modifiche rispetto alla precedente.
 const V1 = [
@@ -161,7 +161,9 @@ const V12 = [
 ];
 // V13: account di prova (tester): partecipa come tutti ma non vince e non conta
 const V13 = [`ALTER TABLE users ADD COLUMN tester INTEGER NOT NULL DEFAULT 0`];
-const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9, 10: V10, 11: V11, 12: V12, 13: V13 };
+// V14: data di apertura della raccolta premi (vuota = già aperta)
+const V14 = [`ALTER TABLE editions ADD COLUMN donazioni_da TEXT`];
+const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9, 10: V10, 11: V11, 12: V12, 13: V13, 14: V14 };
 
 const COME_FUNZIONA_2026 = `Ogni giorno alle 00:00 si apre una busta con un nuovo capitolo della storia.
 

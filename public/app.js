@@ -199,7 +199,7 @@ function vAttesa() {
       const u = S.dati.utente;
       if (!u) return `<p>Per partecipare servirà accedere con il tuo account Discord del server Our Elysion.</p><a class="btn-discord" href="/api/auth/login">Entra con Discord</a>`;
       if (!u.pg && u.ruolo !== "admin") return `<p>Ci sei! Intanto completa il tuo profilo: indica il personaggio a cui consegnare gli eventuali premi.</p><a class="btn" href="#profilo">Completa il profilo</a>`;
-      return `<p>Ci sei, <b>${esc(u.nome)}</b>! Il tuo profilo è pronto: ci vediamo il ${dataLunga(ed.inizio)} per aprire la prima busta. Intanto puoi offrire un premio come aiutante del postino.</p><a class="btn sec" href="#aiutanti">Gli aiutanti del postino</a>`;
+      return `<p>Ci sei, <b>${esc(u.nome)}</b>! Il tuo profilo è pronto: ci vediamo il ${dataLunga(ed.inizio)} per aprire la prima busta. ${S.dati.oggi >= (ed.donazioni_da || "") && S.dati.oggi <= (ed.donazioni_fino || "") ? `Intanto puoi offrire un premio come aiutante del postino.</p><a class="btn sec" href="#aiutanti">Gli aiutanti del postino</a>` : "</p>"}`;
     })()}
     ${connesso() ? "" : NOTA_LOGIN}
   </div>
@@ -354,7 +354,7 @@ function vProfilo() {
     </form></section>
   <section id="mio-dicembre" style="margin-top:24px"></section>
   ${u.aiutante ? `<p style="margin-top:18px"><a href="#aiutanti">Le tue offerte per il calendario</a></p>`
-    : S.dati.oggi <= (S.dati.edizione.donazioni_fino || "") ? `<p style="margin-top:18px"><a href="#aiutanti">Vuoi offrire un premio? Diventa un aiutante</a></p>` : ""}`;
+    : S.dati.oggi <= (S.dati.edizione.donazioni_fino || "") && S.dati.oggi >= (S.dati.edizione.donazioni_da || "") ? `<p style="margin-top:18px"><a href="#aiutanti">Vuoi offrire un premio? Diventa un aiutante</a></p>` : ""}`;
 }
 
 /* ---------- area staff ---------- */
@@ -514,7 +514,8 @@ function formTesti() {
       </div>
       <p class="aiuto">L'estrazione dà la precedenza a chi ha vinto meno premi finora; a parità decide la sorte. Nessuno vince più di un premio al giorno né il premio che ha donato.</p></div>
     <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Aiutanti</h3>
-      <div class="due">${d("t-dfino", "Offerte aperte fino al", ed.donazioni_fino)}</div>
+      <div class="due">${d("t-dda", "Raccolta premi aperta dal", ed.donazioni_da)}${d("t-dfino", "fino al", ed.donazioni_fino)}</div>
+      <p class="aiuto">Prima della data di apertura la pagina Aiutanti si vede, ma il modulo dice quando si apre. Lasciala vuota per aprire subito.</p>
       <div class="campo"><label for="t-aiut">Testo della pagina Aiutanti</label><textarea id="t-aiut" style="min-height:200px">${esc(ed.aiutanti_intro)}</textarea><span class="aiuto">Spiega come consegnare i doni e a chi. Lascia una riga vuota tra i paragrafi.</span></div></div>
     <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Come funziona</h3>
       <div class="campo"><label for="t-come">Passaggi</label><textarea id="t-come" style="min-height:200px">${esc(ed.come_funziona)}</textarea><span class="aiuto">Un passaggio per paragrafo, separati da una riga vuota.</span></div></div>
@@ -685,7 +686,7 @@ document.addEventListener("submit", async (e) => {
       inizio: $("#t-inizio").value, fine: $("#t-fine").value, consegna_da: $("#t-cda").value, consegna_a: $("#t-ca").value,
       marchio: $("#t-marchio").value, titolo: $("#t-titolo").value, sottotitolo: $("#t-sotto").value, intro: $("#t-intro").value,
       come_funziona: $("#t-come").value, regolamento: $("#t-reg").value, tappe,
-      donazioni_fino: $("#t-dfino").value, aiutanti_intro: $("#t-aiut").value,
+      donazioni_da: $("#t-dda").value, donazioni_fino: $("#t-dfino").value, aiutanti_intro: $("#t-aiut").value,
       tetto: Number($("#t-tetto").value), biglietti_sfida: Number($("#t-big").value), biscotti_partecipazione: Number($("#t-bisc").value),
     };
     try { await putJson("/api/admin/edizione", body); toast("Testi e date salvati"); await carica(); }
@@ -751,7 +752,8 @@ async function vAiutanti() {
   S.categorie = a.categorie;
   const u = S.dati.utente;
   let modulo;
-  if (!a.aperte) modulo = `<section class="pannello"><h3>Offerte chiuse</h3><p class="sub">Le offerte per questa edizione si sono chiuse il ${dataLunga(a.fino)}. Grazie a tutti gli aiutanti!</p></section>`;
+  if (a.prima) modulo = `<section class="pannello"><h3>La raccolta apre il ${dataLunga(a.da)}</h3><p class="sub">Dal ${dataLunga(a.da)} al ${dataLunga(a.fino)} potrai offrire un premio per il calendario da questa pagina. Torna a trovarci!</p></section>`;
+  else if (!a.aperte) modulo = `<section class="pannello"><h3>Offerte chiuse</h3><p class="sub">Le offerte per questa edizione si sono chiuse il ${dataLunga(a.fino)}. Grazie a tutti gli aiutanti!</p></section>`;
   else if (!u) modulo = `<section class="pannello"><h3>Offri un premio</h3><p class="sub">Accedi con il tuo account Discord del server Our Elysion per registrare la tua offerta.</p><a class="btn-discord" href="/api/auth/login">Entra con Discord</a></section>`;
   else modulo = `${S.donoInviato ? `<div class="avviso vinto" role="status"><span class="stato ok">Inviata</span><p><b>Grazie, la tua offerta è arrivata!</b> Rimani in attesa: lo staff di Our Elysion la valuterà a breve. Se viene accettata, ti scriviamo su Discord per organizzare lo scambio in gioco. Se questa volta non possiamo accoglierla, grazie lo stesso: sarà per la prossima!</p></div>` : ""}
   <section class="pannello"><h3>Offri un premio</h3><p class="sub">Cerchiamo premi che facciano davvero piacere a chi li vince: una mount, un minion, un bel pezzo di glamour, oppure GIL in quantità significativa. Non serve svuotare l'inventario: meglio un dono speciale che tanti piccoli. Puoi registrare più offerte fino al ${dataLunga(a.fino)}.</p>
@@ -787,7 +789,7 @@ async function riempiPremi() {
   const posti = a.donazioni.reduce((s, d) => s + d.assegnazioni.reduce((t, x) => t + x.vincitori, 0), 0);
   const lista = a.donazioni.filter((d) => f === "tutte" || d.stato === f || (f === "libere" && d.stato === "ricevuta" && d.usati < d.totale));
   const filtri = [["tutte", "Tutte", a.donazioni.length], ["offerta", "Da valutare", conta("offerta")], ["accettata", "Accettate, da ricevere", conta("accettata")], ["libere", "Ricevute da assegnare", a.donazioni.filter((d) => d.stato === "ricevuta" && d.usati < d.totale).length], ["rifiutata", "Non accolte", conta("rifiutata")]];
-  corpo.innerHTML = `<h2>Premi e aiutanti</h2><p class="intro">Le offerte della community e i premi dello staff. Offerte aperte fino al ${dataLunga(a.fino)}${a.aperte ? "" : " (chiuse)"}.</p>
+  corpo.innerHTML = `<h2>Premi e aiutanti</h2><p class="intro">Le offerte della community e i premi dello staff. Raccolta della community ${a.da ? `dal ${dataLunga(a.da)} ` : ""}fino al ${dataLunga(a.fino)}${a.prima ? " (non ancora aperta)" : a.aperte ? "" : " (chiusa)"}.</p>
   <div class="stats">
     <div class="stat"><b>${conta("offerta")}</b><span>Da valutare</span></div>
     <div class="stat"><b>${conta("accettata")}</b><span>Accettate, da ricevere in gioco</span></div>

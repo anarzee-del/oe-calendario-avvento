@@ -73,7 +73,7 @@ function publicEdition(ed) {
     titolo: ed.titolo, sottotitolo: ed.sottotitolo, intro: ed.intro, marchio: ed.marchio || "",
     come_funziona: ed.come_funziona, regolamento: ed.regolamento,
     tappe: JSON.parse(ed.tappe || "[]"),
-    donazioni_fino: ed.donazioni_fino, aiutanti_intro: ed.aiutanti_intro || "",
+    donazioni_da: ed.donazioni_da || "", donazioni_fino: ed.donazioni_fino, aiutanti_intro: ed.aiutanti_intro || "",
     tetto: ed.tetto, biglietti_sfida: ed.biglietti_sfida, biscotti_partecipazione: ed.biscotti_partecipazione,
   };
 }
@@ -226,6 +226,8 @@ async function route(req, env, url, user, ed, ctx) {
       const dates = ["inizio", "fine", "consegna_da", "consegna_a"];
       for (const k of dates) if (!isIsoDate(b[k])) return err(400, "Controlla le date");
       if (!isIsoDate(b.donazioni_fino)) return err(400, "Controlla la scadenza delle offerte");
+      if (b.donazioni_da && !isIsoDate(b.donazioni_da)) return err(400, "Controlla l'apertura della raccolta premi");
+      if (b.donazioni_da && b.donazioni_da > b.donazioni_fino) return err(400, "La raccolta premi deve aprirsi prima della scadenza");
       if (b.fine < b.inizio) return err(400, "La fine deve venire dopo l'inizio");
       const count = Math.round((new Date(b.fine) - new Date(b.inizio)) / 86400000) + 1;
       if (count > 31) return err(400, "Il calendario può durare al massimo 31 giorni");
@@ -239,11 +241,11 @@ async function route(req, env, url, user, ed, ctx) {
         : [];
       const stmts = [env.DB.prepare(
         `UPDATE editions SET inizio=?, fine=?, consegna_da=?, consegna_a=?, titolo=?, sottotitolo=?, marchio=?, intro=?,
-         come_funziona=?, regolamento=?, tappe=?, donazioni_fino=?, aiutanti_intro=?,
+         come_funziona=?, regolamento=?, tappe=?, donazioni_da=?, donazioni_fino=?, aiutanti_intro=?,
          tetto=?, biglietti_sfida=?, biscotti_partecipazione=? WHERE year=?`
       ).bind(b.inizio, b.fine, b.consegna_da, b.consegna_a, str(b.titolo, 80), str(b.sottotitolo, 120), str(b.marchio, 40),
         str(b.intro, 600), str(b.come_funziona, 4000), str(b.regolamento, 12000), JSON.stringify(tappe),
-        b.donazioni_fino, str(b.aiutanti_intro, 3000), tetto, biglietti, biscotti, ed.year)];
+        b.donazioni_da || null, b.donazioni_fino, str(b.aiutanti_intro, 3000), tetto, biglietti, biscotti, ed.year)];
       for (let n = 1; n <= count; n++) {
         stmts.push(env.DB.prepare("INSERT OR IGNORE INTO days(edition,n,titolo) VALUES(?,?,?)").bind(ed.year, n, `Capitolo ${n}`));
       }
