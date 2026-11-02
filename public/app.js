@@ -15,7 +15,7 @@ const ICO = {
   dono: '<svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="1"/><path d="M3 13h18M12 9v12M12 9c-2-4-6-4-6-1.5S9 9 12 9c3 0 6-.5 6-1.5S14 5 12 9Z"/></svg>',
   discord: '<svg viewBox="0 0 24 24" width="18" fill="currentColor" aria-hidden="true"><path d="M19.6 5.3A16.6 16.6 0 0 0 15.5 4l-.5 1a15.3 15.3 0 0 0-6 0L8.5 4a16.6 16.6 0 0 0-4.1 1.3C1.8 9.2 1.1 13 1.4 16.7a16.8 16.8 0 0 0 5 2.5l1.1-1.7a10.8 10.8 0 0 1-1.7-.8l.4-.3a11.9 11.9 0 0 0 10.2 0l.4.3c-.5.3-1.1.6-1.7.8l1.1 1.7a16.7 16.7 0 0 0 5-2.5c.4-4.3-.7-8.1-3-11.4ZM8.7 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.6 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/></svg>',
 };
-const SEGNO = (cls = "") => `<svg class="segno ${cls}" viewBox="0 0 64 64" role="img" aria-label="Aiutante del postino"><title>Aiutante del postino</title><use href="#segno-aiutante"/></svg>`;
+const SEGNO = (cls = "") => `<svg class="segno ${cls}" viewBox="0 0 64 64" role="img" aria-label="Aiutante di Tullio"><title>Aiutante di Tullio</title><use href="#segno-aiutante"/></svg>`;
 const NOTA_LOGIN = `<p class="aiuto nota-login">Si apre il sito ufficiale discord.com: noi non vediamo mai la tua password. <a href="/info.html">Come funziona</a></p>`;
 const ACCESSO = {
   server: "Per entrare devi far parte del server Discord di Our Elysion.",
@@ -199,7 +199,7 @@ function vAttesa() {
       const u = S.dati.utente;
       if (!u) return `<p>Per partecipare servirà accedere con il tuo account Discord del server Our Elysion.</p><a class="btn-discord" href="/api/auth/login">Entra con Discord</a>`;
       if (!u.pg && u.ruolo !== "admin") return `<p>Ci sei! Intanto completa il tuo profilo: indica il personaggio a cui consegnare gli eventuali premi.</p><a class="btn" href="#profilo">Completa il profilo</a>`;
-      return `<p>Ci sei, <b>${esc(u.nome)}</b>! Il tuo profilo è pronto: ci vediamo il ${dataLunga(ed.inizio)} per aprire la prima busta. ${S.dati.oggi >= (ed.donazioni_da || "") && S.dati.oggi <= (ed.donazioni_fino || "") ? `Intanto puoi offrire un premio come aiutante del postino.</p><a class="btn sec" href="#aiutanti">Gli aiutanti del postino</a>` : "</p>"}`;
+      return `<p>Ci sei, <b>${esc(u.nome)}</b>! Il tuo profilo è pronto: ci vediamo il ${dataLunga(ed.inizio)} per aprire la prima busta. ${S.dati.oggi >= (ed.donazioni_da || "") && S.dati.oggi <= (ed.donazioni_fino || "") ? `Intanto puoi offrire un premio come aiutante di Tullio.</p><a class="btn sec" href="#aiutanti">Gli aiutanti di Tullio</a>` : "</p>"}`;
     })()}
     ${connesso() ? "" : NOTA_LOGIN}
   </div>
@@ -344,7 +344,7 @@ function vProfilo() {
   const dc = u.dc || "Light";
   const nuovo = !u.pg && u.ruolo !== "admin";
   return `<div class="pagina-h"><span class="label">Il mio profilo</span><h2>${nuovo ? "Benvenuto! Chi sei in gioco?" : esc(u.nome)}</h2><p>${nuovo ? `Hai fatto l'accesso come <b>${esc(u.discord || u.username)}</b> su Discord. Ora indica il tuo personaggio: è il nome che comparirà sul sito e quello a cui consegneremo i premi.` : `@${esc(u.username)} su Discord`}</p></div>
-  ${u.aiutante ? `<div class="timbro-aiutante">${SEGNO("grande")}<span><b>Aiutante del postino</b><span>Edizione ${S.dati.edizione.anno} · grazie per aver aiutato Tullio con i premi! Il francobollo compare accanto al tuo nome in tutto il sito.</span></span></div>` : ""}
+  ${u.aiutante ? `<div class="timbro-aiutante">${SEGNO("grande")}<span><b>Aiutante di Tullio</b><span>Edizione ${S.dati.edizione.anno} · grazie per aver aiutato Tullio con i premi! Il francobollo compare accanto al tuo nome in tutto il sito.</span></span></div>` : ""}
   <section class="pannello" style="max-width:560px"><h3>Il tuo personaggio</h3><p class="sub">Il nome del personaggio compare sul sito (vincitori, aiutanti, lettere a Tullio) al posto del nome Discord. Il mondo serve per consegnarti i premi in gioco.</p>
     <form id="form-profilo">
       <div class="campo"><label for="pg">Nome del personaggio</label><input type="text" id="pg" maxlength="31" value="${esc(u.pg)}" placeholder="Nome Cognome" autocomplete="off" required pattern="\\s*[A-Za-z'\\-]{2,15}\\s+[A-Za-z'\\-]{2,15}\\s*" title="Nome e cognome del personaggio come in gioco, per esempio Altea Skysinger"><span class="aiuto">Nome e cognome come in gioco, per esempio Altea Skysinger.</span></div>
@@ -723,7 +723,7 @@ try { new ResizeObserver(() => { size(); disegna(false); }).observe(cv); } catch
 disegna(false);
 if (!matchMedia("(prefers-reduced-motion: reduce)").matches) (function loop() { disegna(true); requestAnimationFrame(loop); })();
 
-/* ---------- aiutanti del postino ---------- */
+/* ---------- aiutanti di Tullio ---------- */
 // come vede lo stato chi ha offerto
 const STATO_DONO = { offerta: ["warn", "In attesa di valutazione"], accettata: ["acc", "Accettata"], ricevuta: ["ok", "Ricevuta"], rifiutata: ["", "Non accolta"] };
 // come lo vede lo staff
@@ -772,7 +772,7 @@ async function vAiutanti() {
   }).join("")}</div>
     ${a.mie.some((d) => d.stato === "offerta" || d.stato === "accettata") ? `<p class="aiuto" style="margin-top:10px">"In attesa di valutazione": lo staff deve ancora guardarla. "Accettata": ti scriviamo su Discord per lo scambio in gioco; quando riceviamo il dono diventa "Ricevuta".</p>` : ""}</section>` : "";
   const grazie = `<section class="pannello"><h3>Grazie a</h3>${a.aiutanti.length || a.anonimi ? `<ul class="grazie">${a.aiutanti.map((n) => `<li>${SEGNO()}${esc(n)}</li>`).join("")}</ul>${a.anonimi ? `<p class="aiuto" style="margin-top:8px">e ${a.anonimi === 1 ? "un aiutante anonimo" : a.anonimi + " aiutanti anonimi"}</p>` : ""}` : `<p class="sub">Ancora nessun dono ricevuto. Il primo nome potrebbe essere il tuo!</p>`}</section>`;
-  v.innerHTML = `<div class="pagina-h"><span class="label">Edizione ${S.dati.edizione.anno}</span><h2>Gli aiutanti del postino</h2>
+  v.innerHTML = `<div class="pagina-h"><span class="label">Edizione ${S.dati.edizione.anno}</span><h2>Gli aiutanti di Tullio</h2>
     ${paragrafi(a.intro).map((p) => `<p>${esc(p)}</p>`).join("")}</div>
     <div class="sotto" style="margin-top:0"><div style="display:grid;gap:24px">${modulo}${mie}</div>${grazie}</div>`;
 }
