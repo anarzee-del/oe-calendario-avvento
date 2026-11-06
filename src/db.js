@@ -1,6 +1,6 @@
 // Schema del database e dati iniziali. Lo schema si crea da solo alla prima richiesta.
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 
 // Ogni versione contiene solo le modifiche rispetto alla precedente.
 const V1 = [
@@ -163,12 +163,14 @@ const V12 = [
 const V13 = [`ALTER TABLE users ADD COLUMN tester INTEGER NOT NULL DEFAULT 0`];
 // V14: data di apertura della raccolta premi (vuota = già aperta)
 const V14 = [`ALTER TABLE editions ADD COLUMN donazioni_da TEXT`];
+// V16: edizione di prova (prova generale)
+const V16 = [`ALTER TABLE editions ADD COLUMN prova INTEGER NOT NULL DEFAULT 0`];
 // V15: la raccolta premi diventa "Gli aiutanti di Tullio" (separata dalla storia del moogle)
 const V15 = [
   `UPDATE editions SET aiutanti_intro = REPLACE(aiutanti_intro, 'Vuoi aiutare il postino a riempire la sua sacca? Offri un premio per il calendario: un oggetto in gioco oppure dei GIL.', 'Starlight si avvicina e Tullio vuole che a dicembre, ogni giorno, qualcuno della community trovi un regalo nel calendario dell''Avvento. Da solo però non ce la fa: vuoi aiutarlo a riempire la sua dispensa dei doni? Offri un premio: un oggetto in gioco oppure dei GIL.')`,
   `UPDATE editions SET aiutanti_intro = REPLACE(aiutanti_intro, 'Aiutante del postino', 'Aiutante di Tullio')`,
 ];
-const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9, 10: V10, 11: V11, 12: V12, 13: V13, 14: V14, 15: V15 };
+const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9, 10: V10, 11: V11, 12: V12, 13: V13, 14: V14, 15: V15, 16: V16 };
 
 const COME_FUNZIONA_2026 = `Ogni giorno alle 00:00 si apre una busta con un nuovo capitolo della storia.
 

@@ -124,6 +124,7 @@ export async function handleExtra(req, env, url, user, ed, oggi) {
     return json({ corrente: ed.year, oggi, edizioni: results });
   }
   if (p === "/api/admin/extra/edizioni" && m === "POST") {
+    if (ed.prova) return err(400, "Prima termina la prova generale");
     const nuovo = ed.year + 1;
     if (oggi <= ed.fine) return err(400, `L'edizione ${ed.year} è ancora in corso: si può aprire la nuova dopo il ${ed.fine}`);
     const esiste = await env.DB.prepare("SELECT 1 FROM editions WHERE year=?").bind(nuovo).first();

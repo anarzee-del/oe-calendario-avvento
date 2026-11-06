@@ -7,6 +7,7 @@ import { handleGioco, estraiArretrati, giorniEstratti, contaLettere, premiEstrat
 import { handleExtra } from "./extra.js";
 import { handleAnnunci, giroAnnunci } from "./annunci.js";
 import { statoBonus, segnaTraguardo } from "./bonus.js";
+import { handleProva } from "./prova.js";
 
 const JSONH = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: JSONH });
@@ -69,7 +70,7 @@ function oggiReale(url, env) {
 
 function publicEdition(ed) {
   return {
-    anno: ed.year, inizio: ed.inizio, fine: ed.fine, consegna_da: ed.consegna_da, consegna_a: ed.consegna_a,
+    anno: ed.year, prova: !!ed.prova, inizio: ed.inizio, fine: ed.fine, consegna_da: ed.consegna_da, consegna_a: ed.consegna_a,
     titolo: ed.titolo, sottotitolo: ed.sottotitolo, intro: ed.intro, marchio: ed.marchio || "",
     come_funziona: ed.come_funziona, regolamento: ed.regolamento,
     tappe: JSON.parse(ed.tappe || "[]"),
@@ -102,6 +103,8 @@ async function route(req, env, url, user, ed, ctx) {
 
   if (p === "/api/stato" && m === "GET") return stato(env, url, user, ed, ctx);
 
+  const pv = await handleProva(req, env, url, user, ed, oggiReale(url, env));
+  if (pv) return pv;
   const an = await handleAnnunci(req, env, url, user, ed, oggiReale(url, env));
   if (an) return an;
   const dr = await handleDonazioni(req, env, url, user, ed, today(url, user, env));

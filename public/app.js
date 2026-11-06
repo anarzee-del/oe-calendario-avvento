@@ -15,6 +15,8 @@ const ICO = {
   dono: '<svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="1"/><path d="M3 13h18M12 9v12M12 9c-2-4-6-4-6-1.5S9 9 12 9c3 0 6-.5 6-1.5S14 5 12 9Z"/></svg>',
   discord: '<svg viewBox="0 0 24 24" width="18" fill="currentColor" aria-hidden="true"><path d="M19.6 5.3A16.6 16.6 0 0 0 15.5 4l-.5 1a15.3 15.3 0 0 0-6 0L8.5 4a16.6 16.6 0 0 0-4.1 1.3C1.8 9.2 1.1 13 1.4 16.7a16.8 16.8 0 0 0 5 2.5l1.1-1.7a10.8 10.8 0 0 1-1.7-.8l.4-.3a11.9 11.9 0 0 0 10.2 0l.4.3c-.5.3-1.1.6-1.7.8l1.1 1.7a16.7 16.7 0 0 0 5-2.5c.4-4.3-.7-8.1-3-11.4ZM8.7 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.6 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/></svg>',
 };
+// nome dell'edizione da mostrare: "Edizione 2026" oppure "Prova generale"
+const nomeEd = (ed) => (ed?.prova || ed?.anno >= 9000 ? "Prova generale" : `Edizione ${ed?.anno ?? ""}`);
 const SEGNO = (cls = "") => `<svg class="segno ${cls}" viewBox="0 0 64 64" role="img" aria-label="Aiutante di Tullio"><title>Aiutante di Tullio</title><use href="#segno-aiutante"/></svg>`;
 const NOTA_LOGIN = `<p class="aiuto nota-login">Si apre il sito ufficiale discord.com: noi non vediamo mai la tua password. <a href="/info.html">Come funziona</a></p>`;
 const ACCESSO = {
@@ -87,6 +89,9 @@ function renderTesta() {
   $("#menu").innerHTML = voci.map(([k, t]) => `<a href="#${k}" ${attiva === k ? 'aria-current="page"' : ""}>${t}</a>`).join("");
 
   const u = d.utente;
+  const bp = $("#banner-prova");
+  bp.hidden = !d.edizione?.prova;
+  bp.innerHTML = d.edizione?.prova ? `<div class="banner-prova"><b>Prova generale</b><span>Questo è un calendario di prova (${dataBreve(d.edizione.inizio)} – ${dataBreve(d.edizione.fine)}): buste, premi, vincite e lettere sono finti e verranno cancellati alla fine. Il calendario vero si apre il 1° dicembre.</span></div>` : "";
   const pm = $("#promemoria");
   const manca = u && !u.pg && u.ruolo !== "admin";
   if (u?.tester) {
@@ -192,7 +197,7 @@ function busta(g) {
 function vAttesa() {
   const ed = S.dati.edizione, k = giorniTra(S.dati.oggi, ed.inizio);
   return `<div class="attesa">
-    <span class="label">Edizione ${ed.anno}</span>
+    <span class="label">${nomeEd(ed)}</span>
     <h2>Il calendario si apre il ${dataLunga(ed.inizio)} a mezzanotte</h2>
     <div class="conto"><div><b>${k}</b><span>${k === 1 ? "giorno" : "giorni"} all'apertura</span></div><div><b>${S.dati.giorni.length || giorniTra(ed.inizio, ed.fine) + 1}</b><span>buste da aprire</span></div></div>
     ${(() => {
@@ -335,7 +340,7 @@ function vRegolamento() {
     if (righe[0].startsWith("# ")) return `<section><h3>${esc(righe[0].slice(2))}</h3>${righe.slice(1).join(" ").trim() ? `<p>${esc(righe.slice(1).join(" "))}</p>` : ""}</section>`;
     return `<section><p>${esc(p)}</p></section>`;
   });
-  return `<div class="pagina-h"><span class="label">Edizione ${ed.anno}</span><h2>Regolamento</h2></div><div class="regole">${blocchi.join("")}</div>`;
+  return `<div class="pagina-h"><span class="label">${nomeEd(ed)}</span><h2>Regolamento</h2></div><div class="regole">${blocchi.join("")}</div>`;
 }
 
 function vProfilo() {
@@ -344,7 +349,7 @@ function vProfilo() {
   const dc = u.dc || "Light";
   const nuovo = !u.pg && u.ruolo !== "admin";
   return `<div class="pagina-h"><span class="label">Il mio profilo</span><h2>${nuovo ? "Benvenuto! Chi sei in gioco?" : esc(u.nome)}</h2><p>${nuovo ? `Hai fatto l'accesso come <b>${esc(u.discord || u.username)}</b> su Discord. Ora indica il tuo personaggio: è il nome che comparirà sul sito e quello a cui consegneremo i premi.` : `@${esc(u.username)} su Discord`}</p></div>
-  ${u.aiutante ? `<div class="timbro-aiutante">${SEGNO("grande")}<span><b>Aiutante di Tullio</b><span>Edizione ${S.dati.edizione.anno} · grazie per aver aiutato Tullio con i premi! Il francobollo compare accanto al tuo nome in tutto il sito.</span></span></div>` : ""}
+  ${u.aiutante ? `<div class="timbro-aiutante">${SEGNO("grande")}<span><b>Aiutante di Tullio</b><span>${nomeEd(S.dati.edizione)} · grazie per aver aiutato Tullio con i premi! Il francobollo compare accanto al tuo nome in tutto il sito.</span></span></div>` : ""}
   <section class="pannello" style="max-width:560px"><h3>Il tuo personaggio</h3><p class="sub">Il nome del personaggio compare sul sito (vincitori, aiutanti, lettere a Tullio) al posto del nome Discord. Il mondo serve per consegnarti i premi in gioco.</p>
     <form id="form-profilo">
       <div class="campo"><label for="pg">Nome del personaggio</label><input type="text" id="pg" maxlength="31" value="${esc(u.pg)}" placeholder="Nome Cognome" autocomplete="off" required pattern="\\s*[A-Za-z'\\-]{2,15}\\s+[A-Za-z'\\-]{2,15}\\s*" title="Nome e cognome del personaggio come in gioco, per esempio Altea Skysinger"><span class="aiuto">Nome e cognome come in gioco, per esempio Altea Skysinger.</span></div>
@@ -772,7 +777,7 @@ async function vAiutanti() {
   }).join("")}</div>
     ${a.mie.some((d) => d.stato === "offerta" || d.stato === "accettata") ? `<p class="aiuto" style="margin-top:10px">"In attesa di valutazione": lo staff deve ancora guardarla. "Accettata": ti scriviamo su Discord per lo scambio in gioco; quando riceviamo il dono diventa "Ricevuta".</p>` : ""}</section>` : "";
   const grazie = `<section class="pannello"><h3>Grazie a</h3>${a.aiutanti.length || a.anonimi ? `<ul class="grazie">${a.aiutanti.map((n) => `<li>${SEGNO()}${esc(n)}</li>`).join("")}</ul>${a.anonimi ? `<p class="aiuto" style="margin-top:8px">e ${a.anonimi === 1 ? "un aiutante anonimo" : a.anonimi + " aiutanti anonimi"}</p>` : ""}` : `<p class="sub">Ancora nessun dono ricevuto. Il primo nome potrebbe essere il tuo!</p>`}</section>`;
-  v.innerHTML = `<div class="pagina-h"><span class="label">Edizione ${S.dati.edizione.anno}</span><h2>Gli aiutanti di Tullio</h2>
+  v.innerHTML = `<div class="pagina-h"><span class="label">${nomeEd(S.dati.edizione)}</span><h2>Gli aiutanti di Tullio</h2>
     ${paragrafi(a.intro).map((p) => `<p>${esc(p)}</p>`).join("")}</div>
     <div class="sotto" style="margin-top:0"><div style="display:grid;gap:24px">${modulo}${mie}</div>${grazie}</div>`;
 }
@@ -930,7 +935,7 @@ async function vAlbo() {
   try { a = await api("/api/albo" + (S.alboAnno ? `?anno=${S.alboAnno}` : "")); } catch (e) { v.innerHTML = `<div class="avviso"><p>${esc(e.message)}</p></div>`; return; }
   if (S.vista !== "albo") return;
   const corrente = a.anno === S.dati.edizione.anno;
-  v.innerHTML = `<div class="pagina-h"><span class="label">Edizione ${a.anno}</span><h2>Albo dei vincitori</h2>
+  v.innerHTML = `<div class="pagina-h"><span class="label">${nomeEd({ anno: a.anno })}</span><h2>Albo dei vincitori</h2>
     <p>Ogni notte a mezzanotte il sito estrae i vincitori del giorno, dando la precedenza a chi ha vinto meno premi finora.</p>
     ${a.anni.length > 1 ? `<div class="fila filtri" role="group" aria-label="Edizione">${a.anni.map((y) => `<button class="btn ${y === a.anno ? "" : "sec"} piccolo" data-act="albo-anno" data-anno="${y}">${y}</button>`).join("")}</div>` : ""}</div>
   ${a.giorni.length ? `<div class="albo">${a.giorni.slice().reverse().map((g) => `<section class="albo-giorno"><h3>${corrente ? `<a href="#casella-${g.n}">Giorno ${g.n}</a>` : `Giorno ${g.n}`} <span class="aiuto">${g.data ? dataLunga(g.data) : ""}</span></h3>
@@ -1412,6 +1417,21 @@ document.addEventListener("click", async (e) => {
   } catch (err) { toast(err.message); }
 });
 
+document.addEventListener("click", async (e) => {
+  const a = e.target.closest("[data-act='prova-avvia'],[data-act='prova-termina']"); if (!a) return;
+  const avvia = a.dataset.act === "prova-avvia";
+  if (a.dataset.conferma !== "1") {
+    a.dataset.conferma = "1"; a.classList.add("conferma");
+    a.textContent = avvia ? "Conferma: tutto il sito passa alla prova" : "Conferma: cancella la prova e torna al calendario vero";
+    return;
+  }
+  try {
+    if (avvia) { const r = await api("/api/admin/prova", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inizio: $("#pv-inizio").value, giorni: Number($("#pv-giorni").value) }) }); toast(`Prova generale avviata: ${dataBreve(r.inizio)} – ${dataBreve(r.fine)}`); }
+    else { await api("/api/admin/prova/termina", { method: "POST" }); toast("Prova terminata: il sito è tornato al calendario vero"); }
+    await carica(); location.hash = "staff"; riempiEdizioni();
+  } catch (err) { toast(err.message); }
+});
+
 /* ---------- partecipanti ---------- */
 async function riempiPartecipanti() {
   const corpo = $("#staff-corpo");
@@ -1447,7 +1467,20 @@ async function riempiEdizioni() {
   try { a = await api("/api/admin/extra/edizioni"); } catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
   const cur = a.edizioni.find((e) => e.year === a.corrente);
   const finita = cur && a.oggi > cur.fine;
+  let pv = null;
+  try { pv = await api("/api/admin/prova"); } catch {}
+  const domani = new Date(Date.parse(a.oggi + "T12:00:00Z") + 86400000).toISOString().slice(0, 10);
   corpo.innerHTML = `<h2>Edizioni e backup</h2>
+  <section class="pannello" style="margin-bottom:16px;border-color:var(--primary)"><h3 style="font-size:22px">Prova generale</h3>
+    ${pv?.in_corso ? `<p class="sub">La prova è <b>in corso</b>: ${dataLunga(pv.inizio)} – ${dataLunga(pv.fine)}. Tutto il sito mostra il calendario di prova, con l'avviso in cima. Premi, capitoli e giorni della prova si modificano dalle solite sezioni.</p>
+      <p class="aiuto">"Termina la prova" riporta il sito al calendario ${pv.base || "vero"} e cancella partecipazioni, vincite, messaggi, premi e capitoli della prova. I profili delle persone restano.</p>
+      <button class="btn pericolo-testo quieto" data-act="prova-termina">Termina la prova e torna al calendario vero</button>`
+    : `<p class="sub">Un mini calendario di prova con capitoli e premi finti, che gira come quello vero: buste a mezzanotte, estrazioni, annunci su Discord, traguardi bassi (5, 10 e 15 lettere) e capitolo bonus. Il calendario vero non viene toccato.</p>
+      <div class="due"><div class="campo"><label for="pv-inizio">Primo giorno</label><input type="date" id="pv-inizio" value="${a.oggi < "2026-11-21" ? "2026-11-21" : domani}"></div>
+        <div class="campo"><label for="pv-giorni">Quante buste</label><input type="number" id="pv-giorni" min="1" max="7" value="3"></div></div>
+      <p class="aiuto">Il giorno 2 è una sfida di prova. Per far vincere anche il tuo account di prova, in Partecipanti premi "Torna giocatore normale" durante la prova.</p>
+      <button class="btn" data-act="prova-avvia">Avvia la prova generale</button>`}
+  </section>
   <section class="pannello"><h3 style="font-size:22px">Backup</h3>
     <p class="sub">Scarica una copia di tutti i dati (edizioni, capitoli, iscritti, premi, partecipazioni, vincite, consegne, messaggi). Le immagini restano nel sito. Conviene farlo prima del 1° dicembre e a fine evento.</p>
     <a class="btn sec" href="/api/admin/extra/backup" download>Scarica il backup</a></section>

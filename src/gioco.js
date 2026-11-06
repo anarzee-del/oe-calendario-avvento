@@ -170,7 +170,7 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
     const estratti = [...(await giorniEstratti(env, e.year))].sort((a, b) => a - b);
     const giorni = [];
     for (const n of estratti) giorni.push({ n, data: editionDays(e)[n - 1]?.data, premi: await premiEstratti(env, e.year, n) });
-    return json({ anno: e.year, anni: [...new Set([ed.year, ...anni.map((x) => x.edition)])].sort((a, b) => b - a), giorni });
+    return json({ anno: e.year, anni: [...new Set([ed.year, ...anni.map((x) => x.edition)])].filter((y) => y < 9000 || y === ed.year).sort((a, b) => b - a), giorni });
   }
 
   // Il mio dicembre: partecipazioni e vincite
