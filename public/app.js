@@ -802,6 +802,7 @@ async function riempiPremi() {
     <div class="stat"><b>${conPremio.size}/${giorni.length}</b><span>Giorni con premi</span></div>
     <div class="stat"><b>${posti}</b><span>Vincitori previsti in tutto</span></div>
   </div>
+  ${conta("ricevuta") ? `<p style="margin:12px 0 0"><button class="btn sec piccolo" data-act="copia-ricevuti">Copia l'elenco dei premi ricevuti (${conta("ricevuta")})</button></p>` : ""}
   <div class="fila filtri" role="group" aria-label="Filtra">${filtri.map(([k, t, n]) => `<button class="btn ${f === k ? "" : "sec"} piccolo" data-act="filtro-doni" data-f="${k}">${t} · ${n}</button>`).join("")}</div>
   <div class="doni" style="margin-top:14px">${lista.length ? lista.map((d) => cardDono(d, giorni)).join("") : `<p class="prossimamente">Nessun dono in questo elenco.</p>`}</div>
   <details class="pannello" style="margin-top:22px" ${a.donazioni.length ? "" : "open"}><summary><b>Aggiungi un premio dello staff</b> <span class="aiuto">o un dono ricevuto fuori dal sito</span></summary>
@@ -1037,6 +1038,19 @@ document.addEventListener("change", async (e) => {
   if (!id) return;
   try { await putJson(`/api/admin/estrazioni/biscotti/${id}`, { fatto: e.target.checked }); e.target.closest("li").classList.toggle("fatto", e.target.checked); }
   catch (err) { toast(err.message); e.target.checked = !e.target.checked; }
+});
+
+// Elenco dei premi ricevuti come testo: "oggetto - chi l'ha donato - mondo (in chiaro/anonimo)"
+document.addEventListener("click", async (e) => {
+  if (!e.target.closest('[data-act="copia-ricevuti"]')) return;
+  const ricevuti = (S.adminDoni?.donazioni || []).filter((d) => d.stato === "ricevuta").slice().reverse();
+  const righe = ricevuti.map((d) => {
+    const chi = d.user_id ? d.u_nome || d.u_username || "?" : d.donatore_nome || "Staff di Our Elysion";
+    const mondo = d.user_id ? d.u_mondo || "mondo non indicato" : "";
+    return [d.etichetta, chi, mondo].filter(Boolean).join(" - ") + ` (${d.anonimo ? "anonimo" : "in chiaro"})`;
+  });
+  try { await navigator.clipboard.writeText(righe.join("\n")); toast(`Elenco copiato: ${righe.length} premi`); }
+  catch { toast("Non riesco a copiare, riprova da un altro browser"); }
 });
 
 document.addEventListener("click", async (e) => {
