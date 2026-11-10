@@ -736,7 +736,7 @@ const STATO_DONO_STAFF = { offerta: ["warn", "Da valutare"], accettata: ["acc", 
 const dataOra = (ms) => primo(new Date(ms).toLocaleDateString("it-IT", { day: "numeric", month: "short" }));
 
 function campiDono(pref) {
-  const cat = S.categorie || ["GIL", "Minion", "Mount", "Orchestrion roll", "Dye", "Glamour", "Fashion Accessories", "Emoticon"];
+  const cat = S.categorie || ["GIL", "Minion", "Mount", "Orchestrion roll", "Dye", "Glamour", "Fashion Accessories", "Emoticon", "Varie"];
   return `<div class="campo"><label for="${pref}-cat">Categoria</label><select id="${pref}-cat" data-cat="${pref}"><option value="">Scegli…</option>${cat.map((c) => `<option>${c}</option>`).join("")}</select></div>
     <div class="due" id="${pref}-ogg">
       <div class="campo"><label for="${pref}-desc">Nome dell'oggetto</label><input type="text" id="${pref}-desc" maxlength="100" placeholder="Es. Fat Black Chocobo"></div>

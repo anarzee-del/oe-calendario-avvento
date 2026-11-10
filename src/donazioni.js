@@ -11,7 +11,7 @@ const MIN_GIL_OFFERTA = 100_000; // minimo per le offerte della community (lo st
 const STAFF = "lo staff di Our Elysion";
 const MAX_IMG = 600_000;
 
-export const CATEGORIE = ["GIL", "Minion", "Mount", "Orchestrion roll", "Dye", "Glamour", "Fashion Accessories", "Emoticon"];
+export const CATEGORIE = ["GIL", "Minion", "Mount", "Orchestrion roll", "Dye", "Glamour", "Fashion Accessories", "Emoticon", "Varie"];
 
 // Totale disponibile di un dono: GIL per i GIL, copie per gli oggetti
 export const totaleDono = (d) => (d.tipo === "gil" ? Number(d.gil || 0) : Number(d.quantita || 0));
