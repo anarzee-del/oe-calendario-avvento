@@ -816,7 +816,7 @@ async function riempiPremi() {
 
 function cardDono(d, giorni) {
   const [c, t] = STATO_DONO_STAFF[d.stato];
-  const chi = d.user_id ? `${esc(d.u_nome || "?")} <span class="aiuto">@${esc(d.u_username || "")}${d.u_pg ? " · " + esc(d.u_pg) + (d.u_mondo ? " (" + esc(d.u_mondo) + ")" : "") : ""}</span>` : esc(d.donatore_nome || "Staff di Our Elysion");
+  const chi = d.user_id ? `${esc(d.u_nome || "?")} <span class="aiuto">@${esc(d.u_username || "")}${d.u_pg && d.u_pg !== d.u_nome ? " · " + esc(d.u_pg) : ""}${d.u_mondo ? " · " + esc(d.u_mondo) : ""}</span>` : esc(d.donatore_nome || "Staff di Our Elysion");
   const gil = d.tipo === "gil";
   const resto = d.totale - d.usati;
   const fmt = (x) => gil ? Number(x).toLocaleString("it-IT") + " GIL" : x + (x === 1 ? " copia" : " copie");
@@ -826,6 +826,14 @@ function cardDono(d, giorni) {
     <p class="dono-chi">Da ${chi}</p>
     <p class="aiuto">Sul sito: "${esc(d.pubblico)}" · registrata il ${dataOra(d.created_at)}${d.gestita_da ? " · ultima modifica: " + esc(d.gestita_da) : ""}</p>
     ${d.nota ? `<p class="dono-nota">“${esc(d.nota)}”</p>` : ""}
+    <details class="dono-extra"><summary>Correggi ${gil ? "la quantità di GIL" : "nome e quantità"}</summary>
+      <form class="form-rinomina" data-id="${d.id}" data-gil="${gil ? 1 : 0}" style="display:grid;gap:8px;margin-top:10px;max-width:480px">
+        ${gil ? `<div class="campo" style="margin:0"><label for="rg-${d.id}">GIL in totale</label><input type="number" id="rg-${d.id}" min="1" step="1" value="${Number(d.gil) || 0}"></div>`
+          : `<div class="campo" style="margin:0"><label for="rn-${d.id}">Nome dell'oggetto</label><input type="text" id="rn-${d.id}" maxlength="120" value="${esc(d.descrizione || "")}"></div>
+        <div class="campo" style="margin:0"><label for="rq-${d.id}">Quante copie</label><input type="number" id="rq-${d.id}" min="1" step="1" value="${d.quantita || 1}"></div>`}
+        <button class="btn sec piccolo" type="submit" style="justify-self:start">Salva la correzione</button>
+        <p class="aiuto" style="margin:0">Cambia ovunque: nelle buste, nell'albo e nell'elenco dei premi. Chi l'ha offerto non riceve avvisi.</p>
+      </form></details>
     <div class="fila"><label class="aiuto" for="cat-${d.id}">Categoria</label><select id="cat-${d.id}" data-act-change="categoria" data-id="${d.id}">${d.categoria ? "" : `<option value="">Da scegliere</option>`}${(S.categorie || []).map((k) => `<option ${d.categoria === k ? "selected" : ""}>${k}</option>`).join("")}</select></div>
     ${ric ? `<details class="dono-extra"><summary>Immagine e descrizione per dopo l'estrazione</summary>
       <div class="dono-media">
@@ -1038,6 +1046,18 @@ document.addEventListener("change", async (e) => {
   if (!id) return;
   try { await putJson(`/api/admin/estrazioni/biscotti/${id}`, { fatto: e.target.checked }); e.target.closest("li").classList.toggle("fatto", e.target.checked); }
   catch (err) { toast(err.message); e.target.checked = !e.target.checked; }
+});
+
+// Correzione di nome, quantità o GIL di un dono
+document.addEventListener("submit", async (e) => {
+  const f = e.target.closest(".form-rinomina"); if (!f) return;
+  e.preventDefault();
+  const id = f.dataset.id;
+  const body = f.dataset.gil === "1"
+    ? { gil: Number($(`#rg-${id}`).value) }
+    : { descrizione: $(`#rn-${id}`).value.trim(), quantita: Number($(`#rq-${id}`).value) };
+  try { await putJson(`/api/admin/donazione/${id}`, body); toast("Correzione salvata"); riempiStaff(); }
+  catch (err) { toast(err.message); }
 });
 
 // Elenco dei premi ricevuti come testo: "oggetto - chi l'ha donato - mondo (in chiaro/anonimo)"
