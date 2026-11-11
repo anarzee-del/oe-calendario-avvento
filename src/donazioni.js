@@ -117,6 +117,7 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
 
   if (p === "/api/donazioni" && m === "POST") {
     if (!user) return err(401, "Accedi con Discord per offrire un premio");
+    if (!user.pg && user.role !== "admin") return err(400, "Prima completa il profilo con il nome del tuo personaggio: serve per lo scambio in gioco");
     if (prima) return err(400, "La raccolta dei premi non è ancora iniziata");
     if (!aperte) return err(400, "Le offerte per questa edizione sono chiuse");
     const b = await req.json().catch(() => null);

@@ -757,7 +757,9 @@ async function vAiutanti() {
   S.categorie = a.categorie;
   const u = S.dati.utente;
   let modulo;
-  if (a.prima) modulo = `<section class="pannello"><h3>La raccolta apre il ${dataLunga(a.da)}</h3><p class="sub">Dal ${dataLunga(a.da)} al ${dataLunga(a.fino)} potrai offrire un premio per il calendario da questa pagina. Torna a trovarci!</p></section>`;
+  const senzaPg = connesso() && !S.dati.utente.pg && S.dati.utente.ruolo !== "admin";
+  if (senzaPg && a.aperte) modulo = `<section class="pannello"><h3>Prima dicci chi sei in gioco</h3><p class="sub">Per offrire un premio serve il nome del tuo personaggio: lo staff lo usa per lo scambio in gioco, e comparirà sotto il premio se non resti anonimo.</p><a class="btn" href="#profilo">Completa il profilo</a></section>`;
+  else if (a.prima) modulo = `<section class="pannello"><h3>La raccolta apre il ${dataLunga(a.da)}</h3><p class="sub">Dal ${dataLunga(a.da)} al ${dataLunga(a.fino)} potrai offrire un premio per il calendario da questa pagina. Torna a trovarci!</p></section>`;
   else if (!a.aperte) modulo = `<section class="pannello"><h3>Offerte chiuse</h3><p class="sub">Le offerte per questa edizione si sono chiuse il ${dataLunga(a.fino)}. Grazie a tutti gli aiutanti!</p></section>`;
   else if (!u) modulo = `<section class="pannello"><h3>Offri un premio</h3><p class="sub">Accedi con il tuo account Discord del server Our Elysion per registrare la tua offerta.</p><a class="btn-discord" href="/api/auth/login">Entra con Discord</a></section>`;
   else modulo = `${S.donoInviato ? `<div class="avviso vinto" role="status"><span class="stato ok">Inviata</span><p><b>Grazie, la tua offerta è arrivata!</b> Rimani in attesa: lo staff di Our Elysion la valuterà a breve. Se viene accettata, ti scriviamo su Discord per organizzare lo scambio in gioco. Se questa volta non possiamo accoglierla, grazie lo stesso: sarà per la prossima!</p></div>` : ""}
