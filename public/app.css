@@ -230,3 +230,4 @@ dialog.foglio-lettera::backdrop{background:rgba(10,24,36,.72)}
 #banner-prova{padding-top:14px}
 .banner-prova{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;background:var(--primary);color:var(--on-primary);border-radius:10px;padding:12px 16px;font-family:var(--f-label);font-size:15px}
 .banner-prova b{font-family:var(--f-display);font-size:22px;letter-spacing:.02em}
+.grazie li.anonimi{font-style:italic}

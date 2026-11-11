@@ -776,7 +776,7 @@ async function vAiutanti() {
       ${d.stato === "offerta" || d.stato === "accettata" ? `<button class="btn quieto piccolo" data-act="mio-ritira" data-id="${d.id}">Ritira</button>` : ""}</div></div>`;
   }).join("")}</div>
     ${a.mie.some((d) => d.stato === "offerta" || d.stato === "accettata") ? `<p class="aiuto" style="margin-top:10px">"In attesa di valutazione": lo staff deve ancora guardarla. "Accettata": ti scriviamo su Discord per lo scambio in gioco; quando riceviamo il dono diventa "Ricevuta".</p>` : ""}</section>` : "";
-  const grazie = `<section class="pannello"><h3>Grazie a</h3>${a.aiutanti.length || a.anonimi ? `<ul class="grazie">${a.aiutanti.map((n) => `<li>${SEGNO()}${esc(n)}</li>`).join("")}</ul>${a.anonimi ? `<p class="aiuto" style="margin-top:8px">e ${a.anonimi === 1 ? "un aiutante anonimo" : a.anonimi + " aiutanti anonimi"}</p>` : ""}` : `<p class="sub">Ancora nessun dono ricevuto. Il primo nome potrebbe essere il tuo!</p>`}</section>`;
+  const grazie = `<section class="pannello"><h3>Grazie a</h3>${a.aiutanti.length || a.anonimi ? `<ul class="grazie">${a.aiutanti.map((n) => `<li>${SEGNO()}${esc(n)}</li>`).join("")}${a.anonimi ? `<li class="anonimi">${SEGNO()}${a.aiutanti.length ? "e " : ""}${a.anonimi === 1 ? "un aiutante anonimo" : a.anonimi + " aiutanti anonimi"}</li>` : ""}</ul>` : `<p class="sub">Ancora nessun dono ricevuto. Il primo nome potrebbe essere il tuo!</p>`}</section>`;
   v.innerHTML = `<div class="pagina-h"><span class="label">${nomeEd(S.dati.edizione)}</span><h2>Gli aiutanti di Tullio</h2>
     ${paragrafi(a.intro).map((p) => `<p>${esc(p)}</p>`).join("")}</div>
     <div class="sotto" style="margin-top:0"><div style="display:grid;gap:24px">${modulo}${mie}</div>${grazie}</div>`;
