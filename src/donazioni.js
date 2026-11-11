@@ -61,6 +61,26 @@ export function inPalio(assegnazioni = []) {
   return [...m.entries()].map(([categoria, vincitori]) => ({ categoria, vincitori }));
 }
 
+// Chi ha offerto i premi di un giorno, in una frase: "Mimi Mimo, Bran Ironhart e un aiutante anonimo".
+// Rispetta l'anonimato; non dice quale premio ha offerto ciascuno.
+export function donatoriPalio(assegnazioni = []) {
+  const nomi = [], visti = new Set();
+  let anonimi = 0, staff = false;
+  for (const a of assegnazioni) {
+    if (visti.has(a.id)) continue; // stesso dono assegnato due volte allo stesso giorno
+    visti.add(a.id);
+    const d = donatorePubblico(a);
+    if (d.anonimo) anonimi++;
+    else if (d.staff) staff = true;
+    else if (!nomi.includes(d.nome)) nomi.push(d.nome);
+  }
+  const parti = [...nomi];
+  if (staff) parti.push("lo staff di Our Elysion");
+  if (anonimi) parti.push(anonimi === 1 ? "un aiutante anonimo" : `${anonimi} aiutanti anonimi`);
+  if (!parti.length) return "";
+  return parti.length === 1 ? parti[0] : `${parti.slice(0, -1).join(", ")} e ${parti[parti.length - 1]}`;
+}
+
 export async function isAiutante(env, user, year) {
   if (!user) return false;
   const r = await env.DB.prepare("SELECT 1 FROM donazioni WHERE edition=? AND user_id=? AND stato='ricevuta' LIMIT 1").bind(year, user.id).first();

@@ -303,6 +303,7 @@ function pannelloGioco(g) {
     return h + `</div>`;
   }
   h += `<div class="in-palio"><span class="label">In palio ${g.stato === "oggi" ? "oggi" : ""}</span><b>${tot ? `${tot} ${tot === 1 ? "premio" : "premi"}` : "Premi in arrivo"}</b>${chipsPalio(g.in_palio)}
+    ${g.offerto_da ? `<span class="offerto-palio">${SEGNO()}Offerti da ${esc(g.offerto_da)}</span>` : ""}
     <span class="aiuto">Il premio esatto si scopre dopo l'estrazione.</span></div>`;
   if (g.stato === "passata") return h + `<p class="prossimamente">Estrazione in corso: ricarica la pagina tra qualche minuto.</p></div>`;
   if (g.stato === "sigillata") return h + (g.tipo === "sfida" ? domandaSfida(g, false) : "") + `<p class="prossimamente">Anteprima: il ${dataLunga(g.data)} qui i giocatori troveranno il pulsante per partecipare.</p></div>`;

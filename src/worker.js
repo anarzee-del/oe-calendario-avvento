@@ -2,7 +2,7 @@
 import { ensureSchema, currentEdition } from "./db.js";
 import { handleAuth, currentUser } from "./auth.js";
 import { romeNow, editionDays, dayState, weekday, isIsoDate, addDays } from "./time.js";
-import { handleDonazioni, assegnazioniPerGiorno, inPalio, isAiutante } from "./donazioni.js";
+import { handleDonazioni, assegnazioniPerGiorno, inPalio, isAiutante, donatoriPalio } from "./donazioni.js";
 import { handleGioco, estraiArretrati, giorniEstratti, contaLettere, premiEstratti } from "./gioco.js";
 import { handleExtra } from "./extra.js";
 import { handleAnnunci, giroAnnunci } from "./annunci.js";
@@ -354,6 +354,7 @@ async function giorno(env, url, user, ed, n) {
     user ? env.DB.prepare("SELECT risposta FROM partecipazioni WHERE edition=? AND giorno=? AND user_id=?").bind(ed.year, n, user.id).first() : null,
   ]);
   out.in_palio = inPalio(ass.get(n));
+  out.offerto_da = donatoriPalio(ass.get(n));
   out.estratta = estratti.has(n);
   if (out.estratta) out.premi = await premiEstratti(env, ed.year, n);
   if (user) out.mia = mia ? { partecipato: true, risposta: mia.risposta } : { partecipato: false };

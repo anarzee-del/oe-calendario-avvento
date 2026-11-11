@@ -3,7 +3,7 @@
 // Ogni annuncio ha una chiave (es. "apertura-5") salvata nella tabella annunci: così parte una volta sola.
 import { editionDays, romeNow, addDays, weekday } from "./time.js";
 import { premiEstratti, contaLettere } from "./gioco.js";
-import { assegnazioniPerGiorno, inPalio } from "./donazioni.js";
+import { assegnazioniPerGiorno, inPalio, donatoriPalio } from "./donazioni.js";
 import { statoBonus } from "./bonus.js";
 
 const json = (data, status = 200) =>
@@ -53,11 +53,12 @@ async function annuncia(env, year, chiave, corpo) {
 
 /* ---------- i singoli annunci ---------- */
 
-function msgApertura(env, ed, d, row, palio) {
+function msgApertura(env, ed, d, row, palio, offerto) {
   const url = `${env.BASE_URL}/#casella-${d.n}`;
   const righe = [];
   if (row?.titolo) righe.push(`**${row.titolo}**`);
   if (palio.length) righe.push(`In palio: ${palio.map((c) => (c.vincitori > 1 ? `${c.categoria} ×${c.vincitori}` : c.categoria)).join(" · ")}`);
+  if (offerto) righe.push(`Premi offerti da ${offerto}. Grazie!`);
   righe.push(row?.tipo === "sfida"
     ? `Oggi è un giorno di sfida: rispondi correttamente per avere ${ed.biglietti_sfida || 3} biglietti.`
     : "Basta un clic per partecipare.");
@@ -133,8 +134,9 @@ export async function giroAnnunci(env, ed, oggi = romeNow().date) {
   const oggiG = giorni.find((d) => d.data === oggi);
   if (oggiG) {
     const row = await env.DB.prepare("SELECT titolo, tipo, img_ver FROM days WHERE edition=? AND n=?").bind(ed.year, oggiG.n).first();
-    const palio = inPalio((await assegnazioniPerGiorno(env, ed.year)).get(oggiG.n));
-    if (await annuncia(env, ed.year, `apertura-${oggiG.n}`, msgApertura(env, ed, oggiG, row, palio))) fatti.push(`apertura-${oggiG.n}`);
+    const assOggi = (await assegnazioniPerGiorno(env, ed.year)).get(oggiG.n);
+    const palio = inPalio(assOggi);
+    if (await annuncia(env, ed.year, `apertura-${oggiG.n}`, msgApertura(env, ed, oggiG, row, palio, donatoriPalio(assOggi)))) fatti.push(`apertura-${oggiG.n}`);
   }
 
   // 4. il capitolo bonus, quando si apre
