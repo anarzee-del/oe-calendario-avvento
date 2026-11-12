@@ -546,7 +546,7 @@ function formTesti() {
         <div class="campo"><label for="t-big">Biglietti per la risposta giusta</label><input type="number" id="t-big" min="1" max="10" value="${esc(ed.biglietti_sfida)}"><span class="aiuto">La risposta sbagliata vale 1.</span></div>
         <div class="campo"><label for="t-bisc">Biscotti per partecipazione</label><input type="number" id="t-bisc" min="0" value="${esc(ed.biscotti_partecipazione)}"><span class="aiuto">A chi partecipa e quel giorno non vince.</span></div>
       </div>
-      <p class="aiuto">L'estrazione dà la precedenza a chi ha vinto meno premi finora; a parità decide la sorte. Nessuno vince più di un premio al giorno né il premio che ha donato.</p></div>
+      <p class="aiuto">L'estrazione premia la costanza: prima tutti ricevono un premio, poi la precedenza va a chi ha vinto meno rispetto ai giorni giocati; a parità decide la sorte, con più biglietti a chi ha giocato di più. Nessuno vince più di un premio al giorno né il premio che ha donato.</p></div>
     <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Aiutanti</h3>
       <div class="due">${d("t-dda", "Raccolta premi aperta dal", ed.donazioni_da)}${d("t-dfino", "fino al", ed.donazioni_fino)}</div>
       <p class="aiuto">Prima della data di apertura la pagina Aiutanti si vede, ma il modulo dice quando si apre. Lasciala vuota per aprire subito.</p>
@@ -982,7 +982,7 @@ async function vAlbo() {
   if (S.vista !== "albo") return;
   const corrente = a.anno === S.dati.edizione.anno;
   v.innerHTML = `<div class="pagina-h"><span class="label">${nomeEd({ anno: a.anno })}</span><h2>Albo dei vincitori</h2>
-    <p>Ogni notte a mezzanotte il sito estrae i vincitori del giorno, dando la precedenza a chi ha vinto meno premi finora.</p>
+    <p>Ogni notte a mezzanotte il sito estrae i vincitori del giorno, premiando la costanza: ogni giorno giocato conta.</p>
     ${a.anni.length > 1 ? `<div class="fila filtri" role="group" aria-label="Edizione">${a.anni.map((y) => `<button class="btn ${y === a.anno ? "" : "sec"} piccolo" data-act="albo-anno" data-anno="${y}">${y}</button>`).join("")}</div>` : ""}</div>
   ${a.giorni.length ? `<div class="albo">${a.giorni.slice().reverse().map((g) => `<section class="albo-giorno"><h3>${corrente ? `<a href="#casella-${g.n}">Giorno ${g.n}</a>` : `Giorno ${g.n}`} <span class="aiuto">${g.data ? dataLunga(g.data) : ""}</span></h3>
       <div class="premi">${g.premi.map(cardPremio).join("") || `<p class="sub">Nessun premio.</p>`}</div></section>`).join("")}</div>`

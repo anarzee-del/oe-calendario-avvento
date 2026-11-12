@@ -29,8 +29,12 @@ function pesca(candidati) {
   - un premio al giorno a persona;
   - nessuno supera il tetto di premi dell'edizione;
   - nessuno vince il premio che ha donato;
-  - la precedenza va a chi ha vinto di meno finora; a parità si sorteggia,
-    con più biglietti a chi ha risposto giusto alla sfida.
+  - premia la costanza: la precedenza va a chi ha vinto meno RISPETTO AI GIORNI GIOCATI
+    (rapporto premi vinti / giorni giocati fino a oggi, il più basso vince). Chi non ha ancora
+    vinto niente ha rapporto 0, quindi tutti ricevono un primo premio prima che qualcuno ne riceva
+    un secondo; i premi successivi vanno a chi ha giocato di più;
+  - a parità si sorteggia, con biglietti proporzionali ai giorni giocati
+    (moltiplicati per i biglietti della sfida a chi ha risposto giusto).
 */
 export async function estrai(env, ed, n, da = "automatica") {
   const gia = await env.DB.prepare("SELECT 1 FROM estrazioni WHERE edition=? AND giorno=?").bind(ed.year, n).first();
@@ -42,9 +46,17 @@ export async function estrai(env, ed, n, da = "automatica") {
   ).bind(ed.year, n).all();
   const { results: vinte } = await env.DB.prepare("SELECT user_id, COUNT(*) AS c FROM vincite WHERE edition=? GROUP BY user_id").bind(ed.year).all();
   const totali = new Map(vinte.map((v) => [v.user_id, v.c]));
+  // giorni giocati da ciascuno fino a oggi compreso
+  const { results: giocate } = await env.DB.prepare(
+    "SELECT user_id, COUNT(*) AS c FROM partecipazioni WHERE edition=? AND giorno<=? GROUP BY user_id"
+  ).bind(ed.year, n).all();
+  const giocati = new Map(giocate.map((g) => [g.user_id, g.c]));
+  const gioc = (id) => Math.max(1, giocati.get(id) || 1);
   const assegn = (await assegnazioniPerGiorno(env, ed.year)).get(n) || [];
   const sfida = day.tipo === "sfida";
-  const bigliettiDi = (p) => (sfida && day.giusta !== null && p.risposta === day.giusta ? Math.max(1, ed.biglietti_sfida || 3) : 1);
+  const bigliettiDi = (p) => (sfida && day.giusta !== null && p.risposta === day.giusta ? Math.max(1, ed.biglietti_sfida || 3) : 1) * gioc(p.user_id);
+  // confronto esatto dei rapporti vinti/giocati (a/b < c/d  ⇔  a·d < c·b)
+  const confronta = (x, y) => (totali.get(x) || 0) * gioc(y) - (totali.get(y) || 0) * gioc(x);
 
   const oggiVinto = new Set();
   const nuove = [];
@@ -54,13 +66,14 @@ export async function estrai(env, ed, n, da = "automatica") {
       const eleggibili = part.filter((p) =>
         !oggiVinto.has(p.user_id) && (totali.get(p.user_id) || 0) < (ed.tetto || 5) && p.user_id !== a.user_id);
       if (!eleggibili.length) { log.push(`Nessun vincitore possibile per ${etichettaATesta(a, a.a_testa)}`); continue; }
-      const minimo = Math.min(...eleggibili.map((p) => totali.get(p.user_id) || 0));
-      const candidati = eleggibili.filter((p) => (totali.get(p.user_id) || 0) === minimo).map((p) => ({ ...p, biglietti: bigliettiDi(p) }));
+      const primo = eleggibili.reduce((m, p) => (confronta(p.user_id, m.user_id) < 0 ? p : m));
+      const candidati = eleggibili.filter((p) => confronta(p.user_id, primo.user_id) === 0).map((p) => ({ ...p, biglietti: bigliettiDi(p) }));
+      const minimo = `${totali.get(primo.user_id) || 0} premi su ${gioc(primo.user_id)} giorni`;
       const w = pesca(candidati);
       oggiVinto.add(w.user_id);
       totali.set(w.user_id, (totali.get(w.user_id) || 0) + 1);
       nuove.push({ a, user_id: w.user_id });
-      log.push(`${etichettaATesta(a, a.a_testa)}: estratto tra ${candidati.length} con ${minimo} premi già vinti`);
+      log.push(`${etichettaATesta(a, a.a_testa)}: estratto tra ${candidati.length} (${minimo})`);
     }
   }
   const now = Date.now();
