@@ -35,6 +35,11 @@
     }
   ],
 
+  // Spazio file R2 (lo stesso del sito principale): qui va il video del capitolo bonus, nella cartella avvento/
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "oe-home-media" }
+  ],
+
   // Valori pubblici (non segreti). Il Client Secret di Discord va inserito come SEGRETO
   // nel pannello Cloudflare con il nome DISCORD_CLIENT_SECRET.
   "vars": {

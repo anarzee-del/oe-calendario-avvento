@@ -8,6 +8,7 @@ import { handleExtra } from "./extra.js";
 import { handleAnnunci, giroAnnunci } from "./annunci.js";
 import { statoBonus, segnaTraguardo } from "./bonus.js";
 import { handleProva } from "./prova.js";
+import { handleVideo } from "./video.js";
 
 const JSONH = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: JSONH });
@@ -103,6 +104,8 @@ async function route(req, env, url, user, ed, ctx) {
 
   if (p === "/api/stato" && m === "GET") return stato(env, url, user, ed, ctx);
 
+  const vd = await handleVideo(req, env, url, user, ed);
+  if (vd) return vd;
   const pv = await handleProva(req, env, url, user, ed, oggiReale(url, env));
   if (pv) return pv;
   const an = await handleAnnunci(req, env, url, user, ed, oggiReale(url, env));
@@ -149,7 +152,7 @@ async function route(req, env, url, user, ed, ctx) {
 
     if (p === "/api/admin/giorni" && m === "GET") {
       const { results } = await env.DB.prepare(
-        "SELECT edition,n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,stato_capitolo,img_ver,updated_at,updated_by FROM days WHERE edition=? ORDER BY n"
+        "SELECT edition,n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,stato_capitolo,img_ver,video_ver,updated_at,updated_by FROM days WHERE edition=? ORDER BY n"
       ).bind(ed.year).all();
       const days = editionDays(ed);
       const premi = await assegnazioniPerGiorno(env, ed.year);
@@ -377,10 +380,11 @@ async function giornoBonus(env, url, user, ed) {
   const sb = statoBonus(ed, today(url, user, env));
   if (!sb) return err(404, "Quest'anno non c'è un capitolo bonus");
   if (!sb.aperto && !isAdmin) return err(403, `Il capitolo bonus si apre quando la community ritrova ${sb.traguardo} lettere`);
-  const row = await env.DB.prepare("SELECT titolo,testo,fuoco,img_ver FROM days WHERE edition=? AND n=0").bind(ed.year).first() || {};
+  const row = await env.DB.prepare("SELECT titolo,testo,fuoco,img_ver,video_ver FROM days WHERE edition=? AND n=0").bind(ed.year).first() || {};
   return json({
     n: 0, bonus: true, ...sb, titolo: row.titolo || "Capitolo bonus", testo: row.testo || "",
     immagine: row.img_ver ? `/api/img/0/full?v=${row.img_ver}` : null,
+    video: row.video_ver ? `/api/video/0?v=${row.video_ver}` : null,
   });
 }
 

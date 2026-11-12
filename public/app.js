@@ -163,7 +163,8 @@ async function vBonus() {
   <article class="capitolo" style="max-width:72ch">
     <span class="label">Capitolo bonus · ${g.traguardo} lettere ritrovate</span>
     <h2>${esc(g.titolo)}</h2>
-    ${g.immagine ? `<img class="illustrazione" src="${esc(g.immagine)}" alt="Immagine del capitolo bonus">` : ""}
+    ${g.video ? `<video class="illustrazione video-bonus" controls playsinline preload="metadata" ${g.immagine ? `poster="${esc(g.immagine)}"` : ""} src="${esc(g.video)}">Il tuo browser non riesce a mostrare il video.</video>`
+      : g.immagine ? `<img class="illustrazione" src="${esc(g.immagine)}" alt="Immagine del capitolo bonus">` : ""}
     <div class="storia">${testo.length ? testo.map((p) => `<p>${esc(p)}</p>`).join("") : `<p class="vuoto">Il testo del capitolo bonus non è ancora stato scritto.</p>`}</div>
   </article>`;
 }
@@ -451,7 +452,7 @@ function editorGiorno(g) {
       </div>
     </div>
 
-    ${bonus ? pannelloBonus(g) : `<div class="pannello" style="margin-top:16px">
+    ${bonus ? pannelloVideo(g) + pannelloBonus(g) : `<div class="pannello" style="margin-top:16px">
       <h3 style="font-size:22px;margin-bottom:10px">Il giorno</h3>
       <div class="due">
         <div class="campo"><label for="e-tipo">Tipo di giorno</label><select id="e-tipo"><option value="sorteggio" ${!sfida ? "selected" : ""}>Sorteggio</option><option value="sfida" ${sfida ? "selected" : ""}>Sfida</option></select></div>
@@ -473,6 +474,19 @@ function editorGiorno(g) {
       ${g.updated_by ? `<span class="aiuto">Ultima modifica: ${esc(g.updated_by)}</span>` : ""}
     </div>
   </form>`;
+}
+
+function pannelloVideo(b) {
+  return `<div class="pannello" style="margin-top:16px;display:grid;gap:10px">
+    <h3 style="font-size:22px">Video</h3>
+    <p class="sub" style="margin:0">Se carichi un video, nel capitolo bonus compare al posto dell'immagine; l'immagine resta come copertina del video e come francobollo sulla busta.</p>
+    ${b.video_ver ? `<video class="video-anteprima" controls playsinline preload="metadata" src="/api/video/0?v=${b.video_ver}"></video>` : ""}
+    <div class="campo" style="margin:0"><label for="b-video">${b.video_ver ? "Sostituisci il video" : "Carica un video"}</label>
+      <input type="file" id="b-video" accept="video/mp4,video/webm,video/quicktime">
+      <span class="aiuto">MP4 consigliato (si vede su tutti i telefoni), massimo 95 MB: circa 2-3 minuti in 1080p.</span></div>
+    <progress id="b-video-prog" max="100" value="0" hidden style="width:100%"></progress>
+    ${b.video_ver ? `<button type="button" class="btn quieto pericolo-testo piccolo" data-act="togli-video" style="justify-self:start">Togli il video</button>` : ""}
+  </div>`;
 }
 
 function pannelloBonus(b) {
@@ -1453,6 +1467,32 @@ document.addEventListener("click", async (e) => {
   try { await putJson("/api/admin/bonus", { forzato: a.dataset.v === "1" }); toast(a.dataset.v === "1" ? "Capitolo bonus aperto a tutti" : "Capitolo bonus richiuso"); S.dati = await api(conSim("/api/stato")); riempiStaff(); }
   catch (err) { toast(err.message); }
 });
+// caricamento del video del capitolo bonus, con la barra di avanzamento
+document.addEventListener("change", (e) => {
+  if (e.target.id !== "b-video") return;
+  const f = e.target.files[0]; if (!f) return;
+  if (f.size > 95 * 1024 * 1024) { toast("Video troppo pesante: massimo 95 MB"); e.target.value = ""; return; }
+  const prog = $("#b-video-prog"); prog.hidden = false; prog.value = 0;
+  e.target.disabled = true;
+  const xhr = new XMLHttpRequest();
+  xhr.open("PUT", "/api/admin/giorno/0/video");
+  xhr.setRequestHeader("Content-Type", f.type || "video/mp4");
+  xhr.upload.onprogress = (ev) => { if (ev.lengthComputable) prog.value = Math.round((ev.loaded / ev.total) * 100); };
+  xhr.onload = async () => {
+    let r = {}; try { r = JSON.parse(xhr.responseText); } catch {}
+    if (xhr.status >= 200 && xhr.status < 300) { toast("Video caricato"); const x = await api("/api/admin/giorni"); S.adminBonus = x.bonus; riempiStaff(); }
+    else { toast(r.errore || "Caricamento non riuscito, riprova"); e.target.disabled = false; prog.hidden = true; }
+  };
+  xhr.onerror = () => { toast("Caricamento interrotto: controlla la connessione e riprova"); e.target.disabled = false; prog.hidden = true; };
+  xhr.send(f);
+});
+document.addEventListener("click", async (e) => {
+  const a = e.target.closest("[data-act='togli-video']"); if (!a) return;
+  if (a.dataset.conferma !== "1") { a.dataset.conferma = "1"; a.textContent = "Conferma: togli il video"; a.classList.add("conferma"); return; }
+  try { await api("/api/admin/giorno/0/video", { method: "DELETE" }); toast("Video tolto"); const x = await api("/api/admin/giorni"); S.adminBonus = x.bonus; riempiStaff(); }
+  catch (err) { toast(err.message); }
+});
+
 document.addEventListener("change", async (e) => {
   if (e.target.id !== "b-modo") return;
   try { await putJson("/api/admin/bonus", { modo: e.target.value }); toast("Salvato"); S.dati = await api(conSim("/api/stato")); riempiStaff(); }

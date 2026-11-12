@@ -233,3 +233,7 @@ dialog.foglio-lettera::backdrop{background:rgba(10,24,36,.72)}
 .grazie li.anonimi{font-style:italic}
 .offerto-palio{font-family:var(--f-label);font-size:15px;font-weight:600;display:block}
 .offerto-palio .segno{margin:0 .35em 0 0}
+
+/* video del capitolo bonus */
+video.video-bonus{width:100%;max-width:100%;height:auto;aspect-ratio:16/9;background:#000;border-radius:6px;display:block}
+.video-anteprima{width:100%;max-width:480px;aspect-ratio:16/9;background:#000;border-radius:6px}
