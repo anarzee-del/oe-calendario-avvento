@@ -133,8 +133,8 @@ export async function handleExtra(req, env, url, user, ed, oggi) {
       // copia testi, regole e struttura, spostando le date di un anno
       const sposta = (d) => (d ? `${Number(d.slice(0, 4)) + 1}${d.slice(4)}` : d);
       stmts.push(env.DB.prepare(
-        `INSERT INTO editions(year,inizio,fine,consegna_da,consegna_a,titolo,sottotitolo,intro,come_funziona,regolamento,tappe,donazioni_da,donazioni_fino,aiutanti_intro,tetto,biglietti_sfida,biscotti_partecipazione,marchio,bonus_modo)
-         SELECT ?,?,?,?,?,titolo,?,intro,come_funziona,regolamento,tappe,?,?,aiutanti_intro,tetto,biglietti_sfida,biscotti_partecipazione,marchio,bonus_modo FROM editions WHERE year=?`
+        `INSERT INTO editions(year,inizio,fine,consegna_da,consegna_a,titolo,sottotitolo,intro,come_funziona,regolamento,tappe,donazioni_da,donazioni_fino,aiutanti_intro,tetto,biglietti_sfida,biscotti_partecipazione,marchio,bonus_modo,posta_testi)
+         SELECT ?,?,?,?,?,titolo,?,intro,come_funziona,regolamento,tappe,?,?,aiutanti_intro,tetto,biglietti_sfida,biscotti_partecipazione,marchio,bonus_modo,posta_testi FROM editions WHERE year=?`
       ).bind(nuovo, sposta(ed.inizio), sposta(ed.fine), sposta(ed.consegna_da), sposta(ed.consegna_a),
         (ed.sottotitolo || "").replace(String(ed.year), String(nuovo)), sposta(ed.donazioni_da) || null, sposta(ed.donazioni_fino), ed.year));
       stmts.push(env.DB.prepare(

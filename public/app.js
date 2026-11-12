@@ -523,6 +523,11 @@ function formTesti() {
       <div class="due">${d("t-dda", "Raccolta premi aperta dal", ed.donazioni_da)}${d("t-dfino", "fino al", ed.donazioni_fino)}</div>
       <p class="aiuto">Prima della data di apertura la pagina Aiutanti si vede, ma il modulo dice quando si apre. Lasciala vuota per aprire subito.</p>
       <div class="campo"><label for="t-aiut">Testo della pagina Aiutanti</label><textarea id="t-aiut" style="min-height:200px">${esc(ed.aiutanti_intro)}</textarea><span class="aiuto">Spiega come consegnare i doni e a chi. Lascia una riga vuota tra i paragrafi.</span></div></div>
+    <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Messaggi per Tullio</h3>
+      <p class="aiuto" style="margin-bottom:10px">Il riquadro sul calendario dove i giocatori scrivono il loro messaggio. Lascia vuoto un campo per usare il testo predefinito (quello in grigio). Scrivi {data} dove vuoi la data di consegna (${dataLunga(ed.fine)}).</p>
+      <div class="campo"><label for="t-ptit">Titolo</label><input type="text" id="t-ptit" maxlength="80" value="${esc(ed.posta_testi?.titolo || "")}" placeholder="${esc(POSTA_PREDEFINITI.titolo)}"></div>
+      <div class="campo"><label for="t-ptes">Spiegazione</label><textarea id="t-ptes" maxlength="600" style="min-height:110px" placeholder="${esc(POSTA_PREDEFINITI.testo)}">${esc(ed.posta_testi?.testo || "")}</textarea><span class="aiuto">Puoi andare a capo con una riga vuota per fare più paragrafi.</span></div>
+      <div class="campo"><label for="t-pes">Esempio dentro la casella</label><input type="text" id="t-pes" maxlength="120" value="${esc(ed.posta_testi?.esempio || "")}" placeholder="${esc(POSTA_PREDEFINITI.esempio)}"></div></div>
     <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Come funziona</h3>
       <div class="campo"><label for="t-come">Passaggi</label><textarea id="t-come" style="min-height:200px">${esc(ed.come_funziona)}</textarea><span class="aiuto">Un passaggio per paragrafo, separati da una riga vuota.</span></div></div>
     <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Regolamento</h3>
@@ -694,6 +699,7 @@ document.addEventListener("submit", async (e) => {
       come_funziona: $("#t-come").value, regolamento: $("#t-reg").value, tappe,
       donazioni_da: $("#t-dda").value, donazioni_fino: $("#t-dfino").value, aiutanti_intro: $("#t-aiut").value,
       tetto: Number($("#t-tetto").value), biglietti_sfida: Number($("#t-big").value), biscotti_partecipazione: Number($("#t-bisc").value),
+      posta_testi: { titolo: $("#t-ptit").value, testo: $("#t-ptes").value, esempio: $("#t-pes").value },
     };
     try { await putJson("/api/admin/edizione", body); toast("Testi e date salvati"); await carica(); }
     catch (err) { toast(err.message); }
@@ -1182,13 +1188,21 @@ document.addEventListener("click", async (e) => {
 });
 
 /* ---------- messaggi per Tullio ---------- */
+// testi del riquadro "messaggio per Tullio": quelli scritti dallo staff, altrimenti questi
+const POSTA_PREDEFINITI = {
+  titolo: "Un messaggio per la community",
+  testo: "Lascia un messaggio a Tullio: da buon portavoce di Our Elysion, lo consegnerà a tutta la community il {data}.",
+  esempio: "Caro Tullio, porta questo messaggio a tutti…",
+};
+const testoPosta = (k, a) => (S.dati.edizione.posta_testi?.[k] || POSTA_PREDEFINITI[k]).replaceAll("{data}", a ? dataLunga(a.pubblici_dal) : "{data}");
+
 async function boxMessaggi() {
   let a;
   try { a = await api(conSim("/api/messaggi")); } catch { return; }
   const box = $("#box-messaggi");
   if (!box) return;
   const u = S.dati.utente;
-  let h = `<h3>Un messaggio per la community</h3>`;
+  let h = `<h3>${esc(testoPosta("titolo", a))}</h3>`;
   if (a.pubblicata) {
     const n = a.posta.length;
     box.outerHTML = `<section class="pannello posta-invito" id="box-messaggi"><h3>La posta di Tullio</h3>
@@ -1196,14 +1210,14 @@ async function boxMessaggi() {
       <a class="btn" href="#posta">Vai all'albero delle lettere</a>` : `<p class="sub">Quest'anno la sacca di Tullio è rimasta vuota.</p>`}</section>`;
     return;
   }
-  h += `<p class="sub">Lascia un messaggio a Tullio: da buon portavoce di Our Elysion, lo consegnerà a tutta la community il ${dataLunga(a.pubblici_dal)}.</p>`;
+  h += paragrafi(testoPosta("testo", a)).map((t) => `<p class="sub">${esc(t)}</p>`).join("");
   if (!a.aperti) h += `<p class="prossimamente">${S.dati.oggi < a.da ? `Potrai scrivere dal ${dataLunga(a.da)}.` : "Tullio ha chiuso la sacca: i messaggi saranno consegnati domani."}</p>`;
   else if (!u) h += `<a class="btn-discord" href="/api/auth/login">Accedi per scrivere</a>`;
   else {
     const st = a.mio ? { attesa: ["warn", "In attesa di approvazione"], ok: ["ok", "Approvato"], no: ["err", "Non approvato: puoi modificarlo"] }[a.mio.stato] : null;
     h += `<form id="form-msg">
       <div class="campo"><label for="msg-tullio">Il tuo messaggio</label>
-        <textarea id="msg-tullio" maxlength="500" placeholder="Caro Tullio, porta questo messaggio a tutti…">${esc(a.mio?.testo || "")}</textarea>
+        <textarea id="msg-tullio" maxlength="500" placeholder="${esc(testoPosta("esempio", a))}">${esc(a.mio?.testo || "")}</textarea>
         <span class="aiuto" id="msg-cont">${(a.mio?.testo || "").length} / 500 caratteri · modificabile fino al ${dataLunga(a.fino)}</span></div>
       <div class="fila"><button class="btn" type="submit">${a.mio ? "Aggiorna il messaggio" : "Affida il messaggio a Tullio"}</button>${st ? pill(st[0], st[1]) : ""}
       ${a.mio ? `<button type="button" class="btn quieto piccolo" data-act="msg-elimina">Ritira</button>` : ""}</div></form>`;

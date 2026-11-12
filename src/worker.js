@@ -74,7 +74,7 @@ function publicEdition(ed) {
     titolo: ed.titolo, sottotitolo: ed.sottotitolo, intro: ed.intro, marchio: ed.marchio || "",
     come_funziona: ed.come_funziona, regolamento: ed.regolamento,
     tappe: JSON.parse(ed.tappe || "[]"),
-    donazioni_da: ed.donazioni_da || "", donazioni_fino: ed.donazioni_fino, aiutanti_intro: ed.aiutanti_intro || "",
+    donazioni_da: ed.donazioni_da || "", donazioni_fino: ed.donazioni_fino, aiutanti_intro: ed.aiutanti_intro || "", posta_testi: (() => { try { return JSON.parse(ed.posta_testi || "{}"); } catch { return {}; } })(),
     tetto: ed.tetto, biglietti_sfida: ed.biglietti_sfida, biscotti_partecipazione: ed.biscotti_partecipazione,
   };
 }
@@ -249,6 +249,11 @@ async function route(req, env, url, user, ed, ctx) {
       ).bind(b.inizio, b.fine, b.consegna_da, b.consegna_a, str(b.titolo, 80), str(b.sottotitolo, 120), str(b.marchio, 40),
         str(b.intro, 600), str(b.come_funziona, 4000), str(b.regolamento, 12000), JSON.stringify(tappe),
         b.donazioni_da || null, b.donazioni_fino, str(b.aiutanti_intro, 3000), tetto, biglietti, biscotti, ed.year)];
+      if (b.posta_testi && typeof b.posta_testi === "object") {
+        const pt = {};
+        for (const k of ["titolo", "testo", "esempio"]) if (str(b.posta_testi[k], 600)) pt[k] = str(b.posta_testi[k], 600);
+        stmts.push(env.DB.prepare("UPDATE editions SET posta_testi=? WHERE year=?").bind(JSON.stringify(pt), ed.year));
+      }
       for (let n = 1; n <= count; n++) {
         stmts.push(env.DB.prepare("INSERT OR IGNORE INTO days(edition,n,titolo) VALUES(?,?,?)").bind(ed.year, n, `Capitolo ${n}`));
       }

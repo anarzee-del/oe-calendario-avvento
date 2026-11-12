@@ -57,9 +57,9 @@ export async function handleProva(req, env, url, user, ed, oggi) {
     stmts.push(env.DB.prepare("DELETE FROM editions WHERE year=?").bind(anno));
     stmts.push(env.DB.prepare(
       `INSERT INTO editions(year,inizio,fine,consegna_da,consegna_a,titolo,sottotitolo,intro,come_funziona,regolamento,tappe,
-         donazioni_da,donazioni_fino,aiutanti_intro,tetto,biglietti_sfida,biscotti_partecipazione,marchio,bonus_modo,prova)
+         donazioni_da,donazioni_fino,aiutanti_intro,tetto,biglietti_sfida,biscotti_partecipazione,marchio,bonus_modo,prova,posta_testi)
        SELECT ?,?,?,consegna_da,consegna_a,'Prova generale',?,?,come_funziona,regolamento,?,
-         ?,?,aiutanti_intro,tetto,biglietti_sfida,biscotti_partecipazione,marchio,'dopo',1 FROM editions WHERE year=?`
+         ?,?,aiutanti_intro,tetto,biglietti_sfida,biscotti_partecipazione,marchio,'dopo',1,posta_testi FROM editions WHERE year=?`
     ).bind(anno, inizio, fine, `${giorni} buste di prova · dal ${inizio.slice(8)}/${inizio.slice(5, 7)} al ${fine.slice(8)}/${fine.slice(5, 7)}`,
       "Questa è la prova generale del calendario: le buste, i premi e le vincite sono finti e verranno cancellati alla fine. Grazie per l'aiuto!",
       tappe, addDays(inizio, -1), addDays(inizio, -1), ed.year));
