@@ -1,6 +1,6 @@
 // Capitolo bonus: si sblocca quando la community raggiunge l'ultimo traguardo di lettere.
 // È salvato come giorno n = 0 nella tabella days (titolo, testo, immagine come gli altri capitoli).
-// Nell'edizione: bonus_modo ('dopo' = la mezzanotte dopo il traguardo, 'fine' = all'ultima busta),
+// Nell'edizione: bonus_modo ('dopo' = la mezzanotte dopo il traguardo, 'fine' = il giorno dopo l'ultima busta, es. 26 dicembre),
 // bonus_raggiunto (data in cui la community ha raggiunto il traguardo), bonus_forzato (aperto a mano dallo staff).
 import { addDays } from "./time.js";
 
@@ -14,7 +14,7 @@ export function statoBonus(ed, oggi) {
   // con una data simulata precedente al traguardo, il traguardo non risulta ancora raggiunto
   const r = ed.bonus_raggiunto && ed.bonus_raggiunto <= oggi ? ed.bonus_raggiunto : null;
   let apreIl = null;
-  if (r) apreIl = modo === "fine" ? (addDays(r, 1) > ed.fine ? addDays(r, 1) : ed.fine) : addDays(r, 1);
+  if (r) apreIl = modo === "fine" ? (addDays(r, 1) > addDays(ed.fine, 1) ? addDays(r, 1) : addDays(ed.fine, 1)) : addDays(r, 1);
   const forzato = !!ed.bonus_forzato;
   const aperto = forzato || (!!apreIl && oggi >= apreIl);
   return { traguardo: ultima.s, modo, raggiunto: !!r, raggiunto_il: r, apre_il: apreIl, forzato, aperto };

@@ -393,6 +393,7 @@ async function riempiStaff() {
 const pill = (c, t) => `<span class="stato ${c}">${t}</span>`;
 const PILL_CAP = { pronto: ["ok", "Pronto"], bozza: ["warn", "Bozza"], manca: ["err", "Da scrivere"] };
 
+const addGiorno = (iso) => new Date(Date.parse(iso + "T12:00:00Z") + 86400000).toISOString().slice(0, 10);
 const giornoAdmin = (n) => (n === 0 ? S.adminBonus : S.adminGiorni.find((x) => x.n === n));
 function statoBonusStaff(b) {
   if (b.forzato) return ["ok", "Aperto a mano"];
@@ -417,7 +418,7 @@ function listaGiorni() {
     return `<div class="giorno-card bonus">
       <span class="gn">★<small>Bonus</small></span>
       <span class="mini">${b.img_ver ? `<img src="/api/img/0/thumb?v=${b.img_ver}" alt="" loading="lazy">` : ""}</span>
-      <span class="gt"><b>${esc(b.titolo || "Capitolo bonus")}</b><span class="fila">${pill(c, t)}${pill(c2, t2)}</span><span class="aiuto">${b.lettere ?? 0} lettere su ${b.traguardo} · ${b.modo === "fine" ? "si apre con l'ultima busta" : "si apre la mezzanotte dopo il traguardo"}</span></span>
+      <span class="gt"><b>${esc(b.titolo || "Capitolo bonus")}</b><span class="fila">${pill(c, t)}${pill(c2, t2)}</span><span class="aiuto">${b.lettere ?? 0} lettere su ${b.traguardo} · ${b.modo === "fine" ? `si apre il ${dataBreve(addGiorno(S.dati.edizione.fine))}` : "si apre la mezzanotte dopo il traguardo"}</span></span>
       <button class="btn sec" data-staffday="0">Modifica</button></div>`;
   })() : ""}</div>`;
 }
@@ -483,7 +484,20 @@ function pannelloVideo(b) {
     ${b.video_ver ? `<video class="video-anteprima" controls playsinline preload="metadata" src="/api/video/0?v=${b.video_ver}"></video>` : ""}
     <div class="campo" style="margin:0"><label for="b-video">${b.video_ver ? "Sostituisci il video" : "Carica un video"}</label>
       <input type="file" id="b-video" accept="video/mp4,video/webm,video/quicktime">
-      <span class="aiuto">MP4 consigliato (si vede su tutti i telefoni), massimo 95 MB: circa 2-3 minuti in 1080p.</span></div>
+      <span class="aiuto">MP4, massimo 95 MB. Leggi le indicazioni qui sotto prima di caricarlo.</span></div>
+    <details class="dono-extra"><summary>Indicazioni per preparare il video</summary>
+      <ul class="indicazioni">
+        <li><b>Formato:</b> MP4 (video H.264, audio AAC). È l'unico che parte sicuro su tutti i telefoni, iPhone e Android, e su tutti i PC. WebM va bene solo sui PC e sugli Android.</li>
+        <li><b>Peso massimo:</b> 95 MB. Il sito rifiuta i file più grandi.</li>
+        <li><b>Orientamento:</b> orizzontale 16:9, come le immagini dei capitoli. Un video verticale si vede con due bande nere ai lati.</li>
+        <li><b>Risoluzione:</b> 1920×1080 (1080p) o 1280×720 (720p). Di più non serve: sul telefono non si nota e pesa molto di più.</li>
+        <li><b>Durata indicativa per stare nei 95 MB:</b> circa 2-3 minuti in 1080p, 4-5 minuti in 720p.</li>
+        <li><b>Video dall'iPhone (.mov) o troppo pesanti:</b> convertili prima in MP4, ad esempio con il programma gratuito HandBrake, preset "Fast 1080p30" o "Fast 720p30". Riduce anche il peso.</li>
+        <li><b>Registrazioni di gioco:</b> nascondi l'interfaccia (in gpose sparisce da sola) ed evita testi scritti piccoli, che sul telefono non si leggono.</li>
+        <li><b>Audio:</b> parte solo quando il giocatore preme play, quindi niente sorprese per chi apre la pagina in pubblico. Tieni il volume equilibrato tra musica e voce.</li>
+        <li><b>Copertina:</b> l'immagine del capitolo bonus resta come copertina del video prima che parta e come francobollo sulla busta, quindi caricala comunque.</li>
+        <li><b>Prima dell'apertura</b> il video lo vedete solo voi dello staff; i giocatori lo vedranno quando il capitolo bonus si apre.</li>
+      </ul></details>
     <progress id="b-video-prog" max="100" value="0" hidden style="width:100%"></progress>
     ${b.video_ver ? `<button type="button" class="btn quieto pericolo-testo piccolo" data-act="togli-video" style="justify-self:start">Togli il video</button>` : ""}
   </div>`;
@@ -499,8 +513,8 @@ function pannelloBonus(b) {
     <p class="sub" style="margin:0">${stato}</p>
     <div class="campo" style="margin:0"><label for="b-modo">Si apre…</label><select id="b-modo" data-act-change="bonus-modo">
       <option value="dopo" ${b.modo !== "fine" ? "selected" : ""}>la mezzanotte dopo il traguardo</option>
-      <option value="fine" ${b.modo === "fine" ? "selected" : ""}>a fine calendario, con l'ultima busta</option>
-    </select><span class="aiuto">Si salva da sola. Il traguardo è l'ultimo di Testi, date e regole. Se la community lo raggiunge proprio l'ultimo giorno, il capitolo si apre la mezzanotte dopo.</span></div>
+      <option value="fine" ${b.modo === "fine" ? "selected" : ""}>il giorno dopo l'ultima busta (${dataLunga(addGiorno(S.dati.edizione.fine))})</option>
+    </select><span class="aiuto">Si salva da sola. Il traguardo è l'ultimo di Testi, date e regole. I Biscotti del traguardo valgono comunque da subito.</span></div>
     <div class="fila">${b.forzato
       ? `<button type="button" class="btn quieto pericolo-testo" data-act="bonus-forza" data-v="0">Richiudi (torna alla regola del traguardo)</button>`
       : b.aperto ? "" : `<button type="button" class="btn sec" data-act="bonus-forza" data-v="1">Apri subito per tutti</button>`}</div>
