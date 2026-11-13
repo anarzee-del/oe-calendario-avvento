@@ -103,9 +103,9 @@ function renderTesta() {
     <p><b>Ultimo passo: dicci chi sei in gioco.</b> Indica il nome del tuo personaggio e il mondo: servono per consegnarti i premi, e sul sito comparirà il nome del personaggio al posto di quello di Discord. Senza, non puoi partecipare alle buste.</p>
     <a class="btn grande" href="#profilo">Completa il profilo</a></div>` : "";
   }
-  $("#utente").innerHTML = u
+  $("#utente").innerHTML = pillOnline() + (u
     ? `<span class="avatar" aria-hidden="true">${u.avatar ? `<img src="${esc(u.avatar)}" alt="">` : esc(u.nome[0] || "?")}</span><span>${esc(u.nome)}${u.aiutante ? SEGNO() : ""}${u.ruolo === "admin" ? " · staff" : ""}</span><button class="esci" data-act="esci">Esci</button>`
-    : `<a class="btn-discord" href="/api/auth/login">Entra con Discord</a>`;
+    : `<a class="btn-discord" href="/api/auth/login">Entra con Discord</a>`);
 
   // contatore della community
   const c = $("#contatore");
@@ -1544,13 +1544,14 @@ async function riempiPartecipanti() {
   try { a = await api("/api/admin/extra/partecipanti"); } catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
   S.partecipanti = a.partecipanti;
   disegnaPartecipanti();
+  aggiornaPresenza();
 }
 function disegnaPartecipanti() {
   const corpo = $("#staff-corpo"), q = (S.cercaPart || "").toLowerCase();
   const tutti = S.partecipanti;
   const lista = tutti.filter((x) => !q || [x.nome, x.username, x.pg].some((y) => (y || "").toLowerCase().includes(q)));
   const senzaProfilo = tutti.filter((x) => !x.staff && !x.pg).length;
-  corpo.innerHTML = `<h2>Partecipanti</h2>
+  corpo.innerHTML = `<div class="pannello online-staff" id="box-online"></div><h2>Partecipanti</h2>
   <p class="intro">Tutti quelli che sono entrati nel sito con Discord. Chi viene escluso non può più partecipare, scrivere a Tullio né vincere; le partecipazioni già fatte restano ma non contano nelle estrazioni.</p>
   <div class="stats">
     <div class="stat"><b>${tutti.filter((x) => !x.staff && !x.tester).length}</b><span>Iscritti</span></div>
@@ -1646,3 +1647,31 @@ document.addEventListener("click", async (e) => {
   try { const r = await api(`/api/admin/estrazioni/vincita/${a.dataset.id}/riestrai`, { method: "POST" }); toast(`Premio passato da ${r.prima} a ${r.dopo}`); riempiEstrazioni(); }
   catch (err) { toast(err.message); a.disabled = false; }
 });
+
+
+/* ---------- chi è online ---------- */
+// Il numero lo vedono tutti; i nomi solo lo staff, nella sezione Partecipanti.
+function pillOnline() {
+  const n = S.presenza?.online || 0;
+  return `<span class="online" id="online" ${n ? "" : "hidden"} title="Persone che hanno usato il sito negli ultimi 5 minuti" aria-label="${n} ${n === 1 ? "persona" : "persone"} sul sito in questo momento"><span class="pallino" aria-hidden="true"></span>${n} online</span>`;
+}
+async function aggiornaPresenza() {
+  if (document.visibilityState !== "visible") return;
+  try {
+    const r = await api("/api/presenza");
+    S.presenza = r;
+    const el = $("#online");
+    if (el) el.outerHTML = pillOnline();
+    if (S.vista === "staff" && S.staffSez === "partecipanti") disegnaOnline();
+  } catch {}
+}
+function disegnaOnline() {
+  const box = $("#box-online"); if (!box || !S.presenza?.chi) return;
+  const chi = S.presenza.chi;
+  box.innerHTML = `<b>Online adesso (${chi.length})</b> ${chi.length ? chi.map((x) => `<span class="chip-palio">${esc(x.nome)} <span class="aiuto">@${esc(x.username || "")}</span></span>`).join(" ") : `<span class="aiuto">nessuno</span>`}`;
+}
+aggiornaPresenza();
+setInterval(aggiornaPresenza, 60000);
+document.addEventListener("visibilitychange", aggiornaPresenza);
+// la sezione Partecipanti si ridisegna quando si cerca: rimette anche chi è online
+{ const disegna = disegnaPartecipanti; disegnaPartecipanti = function () { disegna(); disegnaOnline(); }; }

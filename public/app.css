@@ -238,3 +238,11 @@ dialog.foglio-lettera::backdrop{background:rgba(10,24,36,.72)}
 video.video-bonus{width:100%;max-width:100%;height:auto;aspect-ratio:16/9;background:#000;border-radius:6px;display:block}
 .video-anteprima{width:100%;max-width:480px;aspect-ratio:16/9;background:#000;border-radius:6px}
 .indicazioni{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;font-size:15px}
+
+/* chi è online */
+.online{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-label);font-size:13px;font-weight:600;color:var(--night-ink);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:4px 10px;white-space:nowrap}
+.online .pallino{width:8px;height:8px;border-radius:50%;background:#4ADE80;box-shadow:0 0 0 0 rgba(74,222,128,.6);animation:pulsa 2.4s ease-out infinite}
+@keyframes pulsa{70%{box-shadow:0 0 0 6px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+@media (prefers-reduced-motion:reduce){.online .pallino{animation:none}}
+.online-staff{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px}
+.online-staff:empty{display:none}

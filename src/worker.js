@@ -46,6 +46,10 @@ export default {
       }
       // utente ed edizione in parallelo: ogni richiesta al database costa un viaggio
       const [user, ed] = await Promise.all([currentUser(req, env), currentEdition(env)]);
+      // presenza: si segna l'ultima attività al massimo una volta ogni 2 minuti (poche scritture)
+      if (user && Date.now() - (user.last_seen || 0) > 120000) {
+        ctx.waitUntil(env.DB.prepare("UPDATE users SET last_seen=? WHERE id=?").bind(Date.now(), user.id).run().catch(() => {}));
+      }
       return await route(req, env, url, user, ed, ctx);
     } catch (e) {
       console.error(e);
@@ -103,6 +107,21 @@ async function route(req, env, url, user, ed, ctx) {
   const isAdmin = user?.role === "admin";
 
   if (p === "/api/stato" && m === "GET") return stato(env, url, user, ed, ctx);
+
+  // Chi è online: chi ha usato il sito negli ultimi 5 minuti (account di prova esclusi).
+  // Il numero lo vedono tutti, i nomi solo lo staff.
+  if (p === "/api/presenza" && m === "GET") {
+    const da = Date.now() - 5 * 60000;
+    const r = await env.DB.prepare("SELECT COUNT(*) AS c FROM users WHERE last_seen>? AND tester=0").bind(da).first();
+    const out = { online: Math.max(r?.c || 0, user && !user.tester ? 1 : 0) };
+    if (user?.role === "admin") {
+      const { results } = await env.DB.prepare(
+        "SELECT COALESCE(NULLIF(pg,''), global_name, username) AS nome, username, last_seen FROM users WHERE last_seen>? AND tester=0 ORDER BY last_seen DESC"
+      ).bind(da).all();
+      out.chi = results;
+    }
+    return json(out);
+  }
 
   const vd = await handleVideo(req, env, url, user, ed);
   if (vd) return vd;
