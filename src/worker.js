@@ -1,6 +1,6 @@
 // Calendario dell'Avvento di Our Elysion — worker principale (API)
 import { ensureSchema, currentEdition } from "./db.js";
-import { handleAuth, currentUser } from "./auth.js";
+import { handleAuth, currentUser, getCookie } from "./auth.js";
 import { romeNow, editionDays, dayState, weekday, isIsoDate, addDays } from "./time.js";
 import { handleDonazioni, assegnazioniPerGiorno, inPalio, isAiutante, donatoriPalio } from "./donazioni.js";
 import { handleGioco, estraiArretrati, giorniEstratti, contaLettere, premiEstratti } from "./gioco.js";
@@ -45,7 +45,14 @@ export default {
         if (origin && origin !== url.origin && env.DEV_LOGIN !== "1") return err(403, "Richiesta non consentita");
       }
       // utente ed edizione in parallelo: ogni richiesta al database costa un viaggio
-      const [user, ed] = await Promise.all([currentUser(req, env), currentEdition(env)]);
+      const [user, edCorrente] = await Promise.all([currentUser(req, env), currentEdition(env)]);
+      let ed = edCorrente;
+      // Durante la prova generale lo staff può guardare e modificare l'edizione vera (cookie oe_ed, solo admin)
+      const vista = Number(getCookie(req, "oe_ed") || 0);
+      if (user?.role === "admin" && vista && vista !== ed.year) {
+        const alt = await env.DB.prepare("SELECT * FROM editions WHERE year=?").bind(vista).first();
+        if (alt) ed = alt;
+      }
       // presenza: si segna l'ultima attività al massimo una volta ogni 2 minuti (poche scritture)
       if (user && Date.now() - (user.last_seen || 0) > 120000) {
         ctx.waitUntil(env.DB.prepare("UPDATE users SET last_seen=? WHERE id=?").bind(Date.now(), user.id).run().catch(() => {}));
@@ -345,7 +352,20 @@ async function stato(env, url, user, ed, ctx) {
     }
   }
 
+  // per lo staff: c'è una prova in corso? quale edizione sta guardando?
+  let staffEd = null;
+  if (isAdmin) {
+    const st = await env.DB.batch([
+      env.DB.prepare("SELECT value FROM settings WHERE key='edizione_corrente'"),
+      env.DB.prepare("SELECT value FROM settings WHERE key='edizione_base'"),
+    ]);
+    const corrente = Number(st[0].results[0]?.value), base = Number(st[1].results[0]?.value);
+    const provaCorrente = corrente >= 9000;
+    if (provaCorrente) staffEd = { prova: corrente, vera: base || corrente - 7000, vista: ed.year };
+  }
+
   return json({
+    staff_ed: staffEd,
     bonus,
     utente: user ? { ...publicUser(user), aiutante: !!rAiut?.results?.length } : null,
     edizione: publicEdition(ed),

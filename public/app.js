@@ -95,8 +95,12 @@ function renderTesta() {
 
   const u = d.utente;
   const bp = $("#banner-prova");
-  bp.hidden = !d.edizione?.prova;
-  bp.innerHTML = d.edizione?.prova ? `<div class="banner-prova"><b>Prova generale</b><span>Questo è un calendario di prova (${dataBreve(d.edizione.inizio)} – ${dataBreve(d.edizione.fine)}): buste, premi, vincite e lettere sono finti e verranno cancellati alla fine. Il calendario vero si apre il 1° dicembre.</span></div>` : "";
+  const se = d.staff_ed; // solo per lo staff, quando c'è una prova in corso
+  const suVera = se && se.vista !== se.prova;
+  bp.hidden = !d.edizione?.prova && !suVera;
+  bp.innerHTML = suVera
+    ? `<div class="banner-prova vera"><b>Calendario vero</b><span>Lo vedete solo voi dello staff: per i giocatori è in corso la prova generale. Qui potete scrivere capitoli, caricare immagini e abbinare premi del calendario di dicembre.</span><button class="btn piccolo" data-act="vista-ed" data-v="">Torna alla prova</button></div>`
+    : d.edizione?.prova ? `<div class="banner-prova"><b>Prova generale</b><span>Questo è un calendario di prova (${dataBreve(d.edizione.inizio)} – ${dataBreve(d.edizione.fine)}): buste, premi, vincite e lettere sono finti e verranno cancellati alla fine. Il calendario vero si apre il 1° dicembre.</span>${se ? `<button class="btn piccolo sec" data-act="vista-ed" data-v="${se.vera}">Staff: vai al calendario vero</button>` : ""}</div>` : "";
   const pm = $("#promemoria");
   const manca = u && !u.pg && u.ruolo !== "admin";
   if (u?.tester) {
@@ -1680,3 +1684,12 @@ setInterval(aggiornaPresenza, 60000);
 document.addEventListener("visibilitychange", aggiornaPresenza);
 // la sezione Partecipanti si ridisegna quando si cerca: rimette anche chi è online
 { const disegna = disegnaPartecipanti; disegnaPartecipanti = function () { disegna(); disegnaOnline(); }; }
+
+// Staff: durante la prova generale si passa dal calendario di prova a quello vero (vale solo per chi lo preme)
+document.addEventListener("click", async (e) => {
+  const a = e.target.closest("[data-act='vista-ed']"); if (!a) return;
+  document.cookie = a.dataset.v ? `oe_ed=${a.dataset.v}; path=/; SameSite=Lax; max-age=604800` : "oe_ed=; path=/; max-age=0";
+  await carica();
+  toast(a.dataset.v ? "Stai guardando il calendario vero (solo staff)" : "Di nuovo sulla prova generale");
+  if (S.vista === "staff") riempiStaff();
+});

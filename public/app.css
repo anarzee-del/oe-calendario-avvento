@@ -244,3 +244,5 @@ video.video-bonus{width:100%;max-width:100%;height:auto;aspect-ratio:16/9;backgr
 .online .pallino{width:8px;height:8px;border-radius:50%;background:#4ADE80}
 .online-staff{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px}
 .online-staff:empty{display:none}
+.banner-prova .btn{margin-left:auto}
+.banner-prova.vera{background:var(--accent);color:var(--on-accent)}

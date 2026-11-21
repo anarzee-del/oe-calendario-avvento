@@ -33,6 +33,11 @@ export async function handleProva(req, env, url, user, ed, oggi) {
   if (!p.startsWith("/api/admin/prova")) return null;
   if (user?.role !== "admin") return err(403, "Area riservata allo staff");
   const chi = user.global_name || user.username;
+  // se lo staff sta guardando il calendario vero durante la prova, si lavora comunque sull'edizione corrente
+  if (!ed.prova) {
+    const cur = await env.DB.prepare("SELECT e.* FROM editions e WHERE e.year = (SELECT CAST(value AS INTEGER) FROM settings WHERE key='edizione_corrente')").first();
+    if (cur?.prova) ed = cur;
+  }
 
   if (p === "/api/admin/prova" && m === "GET") {
     const base = await env.DB.prepare("SELECT value FROM settings WHERE key='edizione_base'").first();
