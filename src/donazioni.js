@@ -111,7 +111,8 @@ export async function handleDonazioni(req, env, url, user, ed, oggi) {
   const p = url.pathname, m = req.method;
   const isAdmin = user?.role === "admin";
   const prima = !!ed.donazioni_da && oggi < ed.donazioni_da; // raccolta non ancora iniziata
-  const aperte = !prima && (!ed.donazioni_fino || oggi <= ed.donazioni_fino);
+  // la raccolta della community non resta mai aperta nei giorni di gioco
+  const aperte = !prima && (!ed.donazioni_fino || oggi <= ed.donazioni_fino) && oggi < ed.inizio;
   let r;
 
   /* ----- pubblico ----- */

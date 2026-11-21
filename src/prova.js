@@ -62,7 +62,7 @@ export async function handleProva(req, env, url, user, ed, oggi) {
          ?,?,aiutanti_intro,tetto,biglietti_sfida,biscotti_partecipazione,marchio,'dopo',1,posta_testi FROM editions WHERE year=?`
     ).bind(anno, inizio, fine, `${giorni} buste di prova · dal ${inizio.slice(8)}/${inizio.slice(5, 7)} al ${fine.slice(8)}/${fine.slice(5, 7)}`,
       "Questa è la prova generale del calendario: le buste, i premi e le vincite sono finti e verranno cancellati alla fine. Grazie per l'aiuto!",
-      tappe, addDays(inizio, -1), addDays(inizio, -1), ed.year));
+      tappe, "2000-01-01", "2000-01-01", ed.year)); // raccolta premi chiusa: nella prova i premi li mette lo staff
     for (const c of capitoliProva(giorni)) {
       stmts.push(env.DB.prepare(
         "INSERT INTO days(edition,n,tipo,etichetta,titolo,testo,domanda,risposte,giusta,stato_capitolo,updated_at,updated_by) VALUES(?,?,?,?,?,?,?,?,?,'pronto',?,?)"

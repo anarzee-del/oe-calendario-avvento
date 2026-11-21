@@ -17,6 +17,11 @@ const ICO = {
 };
 // nome dell'edizione da mostrare: "Edizione 2026" oppure "Prova generale"
 const nomeEd = (ed) => (ed?.prova || ed?.anno >= 9000 ? "Prova generale" : `Edizione ${ed?.anno ?? ""}`);
+// raccolta premi della community aperta oggi? (stessa regola del server: mai nei giorni di gioco)
+const raccoltaAperta = () => {
+  const ed = S.dati.edizione, oggi = S.dati.oggi;
+  return oggi >= (ed.donazioni_da || "") && oggi <= (ed.donazioni_fino || "9999") && oggi < ed.inizio;
+};
 const SEGNO = (cls = "") => `<svg class="segno ${cls}" viewBox="0 0 64 64" role="img" aria-label="Aiutante di Tullio"><title>Aiutante di Tullio</title><use href="#segno-aiutante"/></svg>`;
 const NOTA_LOGIN = `<p class="aiuto nota-login">Si apre il sito ufficiale discord.com: noi non vediamo mai la tua password. <a href="/info.html">Come funziona</a></p>`;
 const ACCESSO = {
@@ -205,7 +210,7 @@ function vAttesa() {
       const u = S.dati.utente;
       if (!u) return `<p>Per partecipare servirà accedere con il tuo account Discord del server Our Elysion.</p><a class="btn-discord" href="/api/auth/login">Entra con Discord</a>`;
       if (!u.pg && u.ruolo !== "admin") return `<p>Ci sei! Intanto completa il tuo profilo: indica il personaggio a cui consegnare gli eventuali premi.</p><a class="btn" href="#profilo">Completa il profilo</a>`;
-      return `<p>Ci sei, <b>${esc(u.nome)}</b>! Il tuo profilo è pronto: ci vediamo il ${dataLunga(ed.inizio)} per aprire la prima busta. ${S.dati.oggi >= (ed.donazioni_da || "") && S.dati.oggi <= (ed.donazioni_fino || "") ? `Intanto puoi offrire un premio come aiutante di Tullio.</p><a class="btn sec" href="#aiutanti">Gli aiutanti di Tullio</a>` : "</p>"}`;
+      return `<p>Ci sei, <b>${esc(u.nome)}</b>! Il tuo profilo è pronto: ci vediamo il ${dataLunga(ed.inizio)} per aprire la prima busta. ${raccoltaAperta() ? `Intanto puoi offrire un premio come aiutante di Tullio.</p><a class="btn sec" href="#aiutanti">Gli aiutanti di Tullio</a>` : "</p>"}`;
     })()}
     ${connesso() ? "" : NOTA_LOGIN}
   </div>
@@ -361,7 +366,7 @@ function vProfilo() {
     </form></section>
   <section id="mio-dicembre" style="margin-top:24px"></section>
   ${u.aiutante ? `<p style="margin-top:18px"><a href="#aiutanti">Le tue offerte per il calendario</a></p>`
-    : S.dati.oggi <= (S.dati.edizione.donazioni_fino || "") && S.dati.oggi >= (S.dati.edizione.donazioni_da || "") ? `<p style="margin-top:18px"><a href="#aiutanti">Vuoi offrire un premio? Diventa un aiutante</a></p>` : ""}`;
+    : raccoltaAperta() ? `<p style="margin-top:18px"><a href="#aiutanti">Vuoi offrire un premio? Diventa un aiutante</a></p>` : ""}`;
 }
 
 /* ---------- area staff ---------- */
