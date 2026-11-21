@@ -246,3 +246,19 @@ video.video-bonus{width:100%;max-width:100%;height:auto;aspect-ratio:16/9;backgr
 .online-staff:empty{display:none}
 .banner-prova .btn{margin-left:auto}
 .banner-prova.vera{background:var(--accent);color:var(--on-accent)}
+
+/* annunci su Discord: testi modificabili */
+.ann-carta{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:10px}
+.ann-carta summary{cursor:pointer;padding:12px 14px;list-style-position:outside;font-family:var(--f-label)}
+.ann-carta summary b{font-size:16px}
+.ann-quando{display:block;font-size:14px;color:var(--muted);margin-top:3px;line-height:1.4}
+.ann-pers{display:inline-block;margin-left:6px;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--ice);color:var(--ink)}
+.ann-corpo{padding:0 14px 14px}
+.ann-prev{background:#2b2d31;color:#dbdee1;border-left:4px solid #e8962a;border-radius:4px;padding:10px 14px;font-family:system-ui,sans-serif;font-size:15px;line-height:1.45;text-align:left;hyphens:none;overflow-wrap:anywhere}
+.ann-prev .ann-tit{font-weight:700;color:#fff;margin-bottom:4px}
+.ann-prev .ann-link{color:#00a8fc}
+.ann-segni{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.ann-segno{font-family:ui-monospace,monospace;font-size:13px;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:6px;padding:6px 8px;min-height:36px;cursor:pointer}
+.ann-segno:hover{border-color:var(--primary)}
+.ann-leg{margin:10px 0 0;padding-left:18px;font-size:14px;color:var(--muted);text-align:left}
+.ann-leg code{color:var(--ink)}

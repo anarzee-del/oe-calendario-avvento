@@ -1460,6 +1460,7 @@ async function riempiAnnunci() {
   const corpo = $("#staff-corpo");
   let a;
   try { a = await api("/api/admin/annunci"); } catch (e) { corpo.innerHTML = `<p class="avviso">${esc(e.message)}</p>`; return; }
+  ESEMPIO_ANN = a.esempio || {};
   corpo.innerHTML = `<h2>Annunci su Discord</h2>
   <p class="intro">Il sito scrive da solo nel canale del webhook: a mezzanotte i vincitori del giorno appena chiuso e la busta che si apre (titolo, categorie in palio, immagine), i traguardi di lettere appena raggiunti e, il giorno di Natale, l'albero di Tullio. I vincitori vengono menzionati, così ricevono la notifica.</p>
   <div class="stats">
@@ -1472,11 +1473,75 @@ async function riempiAnnunci() {
     <button class="btn ${a.attivi ? "quieto pericolo-testo" : ""}" data-act="annunci-attivi" data-v="${a.attivi ? 0 : 1}" ${a.configurato ? "" : "disabled"}>${a.attivi ? "Spegni gli annunci" : "Accendi gli annunci"}</button>
   </div>
   <p class="aiuto" style="margin-top:8px">Il messaggio di prova parte anche con gli annunci spenti. Quando li accendete, tutto quello che è già successo viene saltato: il sito annuncia solo da quel momento in poi.</p>
+  <section class="pannello" style="margin-top:22px"><h3>I testi degli annunci</h3>
+    <p class="sub">Ecco cosa scrive il sito su Discord e quando. Potete cambiare titolo e testo di ogni annuncio: le parole tra graffe, come <code>{data}</code>, vengono sostituite in automatico (toccale per inserirle nel testo). Se quel giorno un segnaposto è vuoto, per esempio non ci sono donatori, la sua riga non viene inviata. Su Discord <code>**parola**</code> diventa grassetto e <code>[testo](indirizzo)</code> un link.</p>
+    ${a.tipi.map((t) => cartaAnnuncio(t, a)).join("")}
+  </section>
   <section class="pannello" style="margin-top:22px"><h3>Ultimi annunci inviati</h3>
     ${a.inviati.length ? `<ul class="ass-lista" style="margin-top:8px">${a.inviati.map((x) => `<li><b>${esc(NOME_ANNUNCIO(x.chiave))}</b> · ${new Date(x.inviato_at).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</li>`).join("")}</ul>` : `<p class="sub">Ancora nessuno.</p>`}</section>`;
 }
+// Disegna un annuncio come appare su Discord (grassetto e link), con i valori di esempio
+function compilaAnnuncio(tpl, v) {
+  const righe = [];
+  for (const riga of String(tpl || "").split("\n")) {
+    let vuota = false;
+    const r = riga.replace(/\{([a-z_]+)\}/g, (m, k) => { if (!(k in v)) return m; const x = v[k] == null ? "" : String(v[k]); if (!x) vuota = true; return x; });
+    if (!vuota) righe.push(r);
+  }
+  return righe.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+const mdDiscord = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<span class="ann-link">$1</span>').replace(/\n/g, "<br>");
+function anteprimaAnnuncio(titolo, testo, v) {
+  return `<div class="ann-tit">${mdDiscord(compilaAnnuncio(titolo, v))}</div><div class="ann-desc">${mdDiscord(compilaAnnuncio(testo, v))}</div>`;
+}
+function cartaAnnuncio(t, a) {
+  const x = a.testi[t.k];
+  return `<details class="ann-carta" data-k="${t.k}">
+    <summary><b>${esc(t.nome)}</b>${x.modificato ? ` <span class="ann-pers">personalizzato</span>` : ""}<span class="ann-quando">${esc(t.quando)}</span></summary>
+    <div class="ann-corpo">
+      <div class="ann-prev" aria-label="Anteprima con dati di esempio">${anteprimaAnnuncio(x.titolo, x.testo, a.esempio)}</div>
+      <p class="aiuto" style="margin:4px 0 12px">Anteprima con dati di esempio.</p>
+      <div class="campo"><label for="ann-t-${t.k}">Titolo</label><input type="text" id="ann-t-${t.k}" class="ann-in-tit" maxlength="240" value="${esc(x.titolo)}"></div>
+      <div class="campo"><label for="ann-d-${t.k}">Testo</label><textarea id="ann-d-${t.k}" class="ann-in-testo" maxlength="3500" style="min-height:200px">${esc(x.testo)}</textarea></div>
+      <div class="ann-segni">${t.segnaposto.map((k) => `<button type="button" class="ann-segno" data-segno="${k}" title="${esc(a.segnaposto[k] || "")}">{${k}}</button>`).join("")}</div>
+      <ul class="ann-leg">${t.segnaposto.map((k) => `<li><code>{${k}}</code> ${esc(a.segnaposto[k] || "")}</li>`).join("")}</ul>
+      <div class="fila" style="margin-top:12px">
+        <button class="btn" data-act="annunci-salva">Salva il testo</button>
+        <button class="btn sec" data-act="annunci-anteprima" ${a.configurato ? "" : "disabled"}>Invia un'anteprima su Discord</button>
+        ${x.modificato ? `<button class="btn quieto" data-act="annunci-originale">Torna al testo originale</button>` : ""}
+      </div>
+    </div>
+  </details>`;
+}
+let ESEMPIO_ANN = {}, ultimoCampoAnn = null;
+document.addEventListener("input", (e) => {
+  const c = e.target.closest(".ann-carta"); if (!c) return;
+  c.querySelector(".ann-prev").innerHTML = anteprimaAnnuncio(c.querySelector(".ann-in-tit").value, c.querySelector(".ann-in-testo").value, ESEMPIO_ANN);
+});
+document.addEventListener("focusin", (e) => { if (e.target.matches?.(".ann-in-tit, .ann-in-testo")) ultimoCampoAnn = e.target; });
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".ann-segno"); if (!b) return;
+  const c = b.closest(".ann-carta");
+  const campo = ultimoCampoAnn && c.contains(ultimoCampoAnn) ? ultimoCampoAnn : c.querySelector(".ann-in-testo");
+  const ins = `{${b.dataset.segno}}`, i = campo.selectionStart ?? campo.value.length, f = campo.selectionEnd ?? i;
+  campo.value = campo.value.slice(0, i) + ins + campo.value.slice(f);
+  campo.focus(); campo.setSelectionRange(i + ins.length, i + ins.length);
+  campo.dispatchEvent(new Event("input", { bubbles: true }));
+});
 document.addEventListener("click", async (e) => {
   const a = e.target.closest("[data-act^='annunci-']"); if (!a) return;
+  const carta = a.closest(".ann-carta");
+  if (carta) {
+    const k = carta.dataset.k, titolo = carta.querySelector(".ann-in-tit").value, testo = carta.querySelector(".ann-in-testo").value;
+    try {
+      if (a.dataset.act === "annunci-anteprima") { a.disabled = true; await api("/api/admin/annunci/anteprima", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ k, titolo, testo }) }); toast("Anteprima inviata: guarda il canale"); a.disabled = false; return; }
+      if (a.dataset.act === "annunci-salva") { await putJson("/api/admin/annunci/testi", { k, titolo, testo }); toast("Testo salvato"); }
+      if (a.dataset.act === "annunci-originale") { await putJson("/api/admin/annunci/testi", { k, predefinito: true }); toast("Ripristinato il testo originale"); }
+    } catch (err) { toast(err.message); a.disabled = false; return; }
+    await riempiAnnunci();
+    $(`.ann-carta[data-k="${k}"]`)?.setAttribute("open", "");
+    return;
+  }
   try {
     if (a.dataset.act === "annunci-prova") { a.disabled = true; await api("/api/admin/annunci/prova", { method: "POST" }); toast("Messaggio di prova inviato: guarda il canale"); }
     if (a.dataset.act === "annunci-attivi") { await putJson("/api/admin/annunci", { attivi: a.dataset.v === "1" }); toast(a.dataset.v === "1" ? "Annunci accesi" : "Annunci spenti"); }
