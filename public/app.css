@@ -262,3 +262,9 @@ video.video-bonus{width:100%;max-width:100%;height:auto;aspect-ratio:16/9;backgr
 .ann-segno:hover{border-color:var(--primary)}
 .ann-leg{margin:10px 0 0;padding-left:18px;font-size:14px;color:var(--muted);text-align:left}
 .ann-leg code{color:var(--ink)}
+.staff-vista{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;background:var(--primary);color:var(--on-primary);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-family:var(--f-label);font-size:15px;line-height:1.4}
+.staff-vista .btn{margin-left:auto}
+.staff-vista.vera{background:var(--accent);color:var(--on-accent)}
+/* pulsante sul riquadro blu della prova: chiaro, così si vede */
+.banner-prova .btn.sec,.staff-vista .btn.sec{background:var(--paper);color:var(--ink);border:1px solid var(--paper)}
+.banner-prova .btn.sec:hover,.staff-vista .btn.sec:hover{background:var(--surface)}

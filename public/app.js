@@ -382,7 +382,10 @@ function vProfilo() {
 async function vStaff() {
   if (!admin()) return `<div class="pannello sigillata-box"><h2>Area riservata allo staff</h2></div>`;
   const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["estrazioni", "Estrazioni"], ["consegne", "Consegne"], ["biscotti", "Biscotti per Mee6"], ["messaggi", "Messaggi per Tullio"], ["partecipanti", "Partecipanti"], ["annunci", "Annunci su Discord"], ["testi", "Testi, date e regole"], ["edizioni", "Edizioni e backup"]];
-  const head = `<div class="staff"><nav class="staff-nav" aria-label="Sezioni staff">${nav.map(([k, t]) => `<button data-sez="${k}" aria-current="${S.staffSez === k}">${t}</button>`).join("")}
+  const se = S.dati.staff_ed, suVera = se && se.vista !== se.prova;
+  const vista = se ? `<div class="staff-vista ${suVera ? "vera" : ""}"><span>${suVera ? "Stai lavorando sul <b>calendario vero</b> di dicembre." : "Stai guardando la <b>prova generale</b>. Per scrivere capitoli e caricare immagini di dicembre passa al calendario vero."}</span>
+    <button class="btn piccolo ${suVera ? "" : "sec"}" data-act="vista-ed" data-v="${suVera ? "" : se.vera}">${suVera ? "Torna alla prova" : "Vai al calendario vero"}</button></div>` : "";
+  const head = `${vista}<div class="staff"><nav class="staff-nav" aria-label="Sezioni staff">${nav.map(([k, t]) => `<button data-sez="${k}" aria-current="${S.staffSez === k}">${t}</button>`).join("")}
 </nav><section id="staff-corpo"><p class="caricamento">Caricamento…</p></section></div>`;
   return head;
 }
