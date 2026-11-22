@@ -64,6 +64,8 @@ const dataLunga = (iso) => primo(new Date(iso + "T12:00:00Z").toLocaleDateString
 const dataBreve = (iso) => primo(new Date(iso + "T12:00:00Z").toLocaleDateString("it-IT", { day: "numeric", month: "short", timeZone: "UTC" }));
 const giorniTra = (a, b) => Math.round((new Date(b + "T12:00:00Z") - new Date(a + "T12:00:00Z")) / 86400000);
 const paragrafi = (t) => String(t || "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+// dentro un paragrafo, un semplice "a capo" resta un a capo (utile per lettere, dialoghi, poesie)
+const escBr = (t) => esc(t).replace(/\s*\n\s*/g, "<br>");
 const admin = () => S.dati?.utente?.ruolo === "admin";
 const connesso = () => !!S.dati?.utente;
 
@@ -179,7 +181,7 @@ async function vBonus() {
     <h2>${esc(g.titolo)}</h2>
     ${g.video ? `<video class="illustrazione video-bonus" controls playsinline preload="metadata" ${g.immagine ? `poster="${esc(g.immagine)}"` : ""} src="${esc(g.video)}">Il tuo browser non riesce a mostrare il video.</video>`
       : g.immagine ? `<img class="illustrazione" src="${esc(g.immagine)}" alt="Immagine del capitolo bonus">` : ""}
-    <div class="storia">${testo.length ? testo.map((p) => `<p>${esc(p)}</p>`).join("") : `<p class="vuoto">Il testo del capitolo bonus non è ancora stato scritto.</p>`}</div>
+    <div class="storia">${testo.length ? testo.map((p) => `<p>${escBr(p)}</p>`).join("") : `<p class="vuoto">Il testo del capitolo bonus non è ancora stato scritto.</p>`}</div>
   </article>`;
 }
 
@@ -273,7 +275,7 @@ async function vCasella(n) {
       <span class="label">Capitolo ${g.n} · ${GG_LUNGO[g.wd]} ${dataLunga(g.data)}${g.etichetta ? " · " + esc(g.etichetta) : ""}</span>
       <h2>${esc(g.titolo || "Capitolo " + g.n)}</h2>
       ${g.immagine ? `<img class="illustrazione" src="${esc(g.immagine)}" alt="Immagine del capitolo ${g.n}">` : ""}
-      <div class="storia">${testo.length ? testo.map((p) => `<p>${esc(p)}</p>`).join("") : g.tipo === "lettera" ? "" : `<p class="vuoto">Il testo di questo capitolo non è ancora stato scritto.</p>`}</div>
+      <div class="storia">${testo.length ? testo.map((p) => `<p>${escBr(p)}</p>`).join("") : g.tipo === "lettera" ? "" : `<p class="vuoto">Il testo di questo capitolo non è ancora stato scritto.</p>`}</div>
       ${g.tipo === "lettera" ? bloccoLettera(g) : ""}
     </article>
     <aside class="azione">${pannelloGioco(g)}</aside>
@@ -293,7 +295,7 @@ function SIGILLO(ini = inizialiPg(S.dati.utente?.pg)) {
 function cartaLettera(l) {
   const par = paragrafi(l.testo);
   return `${l.apertura ? `<p class="l-apertura">${esc(l.apertura)}</p>` : ""}
-    ${par.length ? par.map((p) => `<p>${esc(p)}</p>`).join("") : `<p class="vuoto">Il testo della lettera non è ancora stato scritto.</p>`}
+    ${par.length ? par.map((p) => `<p>${escBr(p)}</p>`).join("") : `<p class="vuoto">Il testo della lettera non è ancora stato scritto.</p>`}
     ${l.firma ? `<p class="l-firma">${esc(l.firma)}</p>` : ""}`;
 }
 function bloccoLettera(g) {
@@ -872,7 +874,7 @@ async function vAiutanti() {
     ${a.mie.some((d) => d.stato === "offerta" || d.stato === "accettata") ? `<p class="aiuto" style="margin-top:10px">"In attesa di valutazione": lo staff deve ancora guardarla. "Accettata": ti scriviamo su Discord per lo scambio in gioco; quando riceviamo il dono diventa "Ricevuta".</p>` : ""}</section>` : "";
   const grazie = `<section class="pannello"><h3>Grazie a</h3>${a.aiutanti.length || a.anonimi ? `<ul class="grazie">${a.aiutanti.map((n) => `<li>${SEGNO()}${esc(n)}</li>`).join("")}${a.anonimi ? `<li class="anonimi">${SEGNO()}${a.aiutanti.length ? "e " : ""}${a.anonimi === 1 ? "un aiutante anonimo" : a.anonimi + " aiutanti anonimi"}</li>` : ""}</ul>` : `<p class="sub">Ancora nessun dono ricevuto. Il primo nome potrebbe essere il tuo!</p>`}</section>`;
   v.innerHTML = `<div class="pagina-h"><span class="label">${nomeEd(S.dati.edizione)}</span><h2>Gli aiutanti di Tullio</h2>
-    ${paragrafi(a.intro).map((p) => `<p>${esc(p)}</p>`).join("")}</div>
+    ${paragrafi(a.intro).map((p) => `<p>${escBr(p)}</p>`).join("")}</div>
     <div class="sotto" style="margin-top:0"><div style="display:grid;gap:24px">${modulo}${mie}</div>${grazie}</div>`;
 }
 
