@@ -292,18 +292,20 @@ function SIGILLO(ini = inizialiPg(S.dati.utente?.pg)) {
     ? `<text class="cera-ini" x="32" y="33" text-anchor="middle" dominant-baseline="central" font-size="${ini.length > 1 ? 17 : 22}">${esc(ini)}</text>`
     : `<path class="cera-segno" d="M32 20v24M21.6 26l20.8 12M21.6 38l20.8-12"/>`}</svg>`;
 }
+const inizialiStaff = () => inizialiPg(S.dati.utente?.pg || S.dati.utente?.nome) || "OE";
 function cartaLettera(l) {
   const par = paragrafi(l.testo);
   return `${l.apertura ? `<p class="l-apertura">${esc(l.apertura)}</p>` : ""}
     ${par.length ? par.map((p) => `<p>${escBr(p)}</p>`).join("") : `<p class="vuoto">Il testo della lettera non è ancora stato scritto.</p>`}
     ${l.firma ? `<p class="l-firma">${esc(l.firma)}</p>` : ""}`;
 }
-function bloccoLettera(g) {
+function bloccoLettera(g, provaStaff = false) {
   const l = g.lettera || {};
-  if (g.mia?.partecipato) {
-    return `<div class="lettera-chiusa"><div class="busta-cera">${SIGILLO()}</div>
+  if (g.mia?.partecipato || provaStaff) {
+    return `<div class="lettera-chiusa"><div class="busta-cera">${SIGILLO(provaStaff ? inizialiStaff() : undefined)}</div>
       <div><span class="label">Lettera ritrovata</span><p><b>Hai sigillato la lettera.</b> Il moogle la riporterà a chi la aspettava.</p>
-      <details class="rileggi"><summary>Rileggi la lettera</summary><div class="lettera">${cartaLettera(l)}</div></details></div></div>`;
+      <details class="rileggi"><summary>Rileggi la lettera</summary><div class="lettera">${cartaLettera(l)}</div></details>
+      ${provaStaff ? `<p class="aiuto">Anteprima staff: così la vede il giocatore dopo il sigillo. Non è stata registrata nessuna partecipazione. <button class="btn quieto piccolo" data-act="riapri-lettera">Riapri la lettera</button></p>` : ""}</div></div>`;
   }
   const puo = puoPartecipare(g);
   return `<div class="lettera-wrap"><span class="label">Una lettera ritrovata</span>
@@ -311,6 +313,8 @@ function bloccoLettera(g) {
       <div class="l-sigillo">${puo
         ? `<button class="btn-cera" data-act="sigilla" data-n="${g.n}"><span class="cera-dove">${SIGILLO()}</span><span>Sigilla la lettera</span></button>
            <p class="aiuto">Hai letto? Chiudila con il sigillo di ceralacca: così partecipi all'estrazione di oggi.</p>`
+        : admin() ? `<button class="btn-cera" data-act="sigilla-prova"><span class="cera-dove">${SIGILLO(inizialiStaff())}</span><span>Prova il sigillo</span></button>
+           <p class="aiuto">Solo anteprima per lo staff: vedi l'animazione, ma non partecipi. I giocatori vedono le iniziali del proprio personaggio.</p>`
         : `<span class="cera-vuota" aria-hidden="true"></span>`}</div>
     </div></div>`;
 }
@@ -996,6 +1000,13 @@ document.addEventListener("click", async (e) => {
       toast(msgPartecipa("Sei in gara!", r)); S.dati.lettere = r.lettere; await carica();
     }
     if (act === "vai-azione") { ($(".btn-cera") ? $("#lettera .l-sigillo") : $("#azione"))?.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    if (act === "sigilla-prova") {
+      const carta = $("#lettera");
+      carta?.classList.add("timbra");
+      await new Promise((ok) => setTimeout(ok, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1400));
+      const w = $(".lettera-wrap"); if (w) w.outerHTML = bloccoLettera(S.casella, true);
+    }
+    if (act === "riapri-lettera") { const w = $(".lettera-chiusa"); if (w) w.outerHTML = bloccoLettera(S.casella); }
     if (act === "vai-lettera") { $("#lettera .l-sigillo")?.scrollIntoView({ behavior: "smooth", block: "center" }); }
     if (act === "sigilla") {
       a.disabled = true;
