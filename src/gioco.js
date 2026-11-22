@@ -213,7 +213,7 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
   if (p === "/api/admin/estrazioni" && m === "GET") {
     const assegn = await assegnazioniPerGiorno(env, ed.year);
     const { results: estr } = await env.DB.prepare("SELECT * FROM estrazioni WHERE edition=?").bind(ed.year).all();
-    const { results: conti } = await env.DB.prepare("SELECT p.giorno, COUNT(*) AS c FROM partecipazioni p JOIN users u ON u.id = p.user_id WHERE p.edition=? AND u.tester=0 GROUP BY p.giorno").bind(ed.year).all();
+    const { results: conti } = await env.DB.prepare("SELECT p.giorno, SUM(u.tester=0) AS c, SUM(u.tester=1) AS t FROM partecipazioni p JOIN users u ON u.id = p.user_id WHERE p.edition=? GROUP BY p.giorno").bind(ed.year).all();
     const out = [];
     for (const d of editionDays(ed)) {
       const e = estr.find((x) => x.giorno === d.n);
@@ -221,6 +221,7 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
       out.push({
         n: d.n, data: d.data, posti,
         partecipanti: conti.find((x) => x.giorno === d.n)?.c || 0,
+        di_prova: conti.find((x) => x.giorno === d.n)?.t || 0,
         stato: e ? "estratta" : d.data < oggiReale ? "da_estrarre" : d.data === oggiReale ? "in_corso" : "futura",
         eseguita_at: e?.eseguita_at || null, eseguita_da: e?.eseguita_da || null,
         log: e ? JSON.parse(e.log || "[]") : [],

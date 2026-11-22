@@ -229,5 +229,5 @@ pre.cmd{background:var(--bg);border:1px solid var(--line);border-radius:6px;padd
 footer{border-top:1px solid var(--line);padding-block:22px;font-family:var(--f-label);font-size:13px;color:var(--muted)}
 footer .wrap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);font-family:var(--f-label);font-size:14px;padding:10px 16px;border-radius:8px;box-shadow:var(--shadow);max-width:calc(100% - 32px);z-index:20}
+.toast{cursor:pointer;line-height:1.4;position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);font-family:var(--f-label);font-size:14px;padding:10px 16px;border-radius:8px;box-shadow:var(--shadow);max-width:calc(100% - 32px);z-index:20}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}

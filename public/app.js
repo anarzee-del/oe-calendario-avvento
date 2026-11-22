@@ -52,7 +52,12 @@ async function api(path, opts = {}) {
 }
 const putJson = (path, body) => api(path, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 let toastT;
-function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (el.hidden = true), 3500); }
+// L'avviso resta più a lungo se il testo è lungo (circa il tempo per leggerlo); toccandolo si chiude
+function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (el.hidden = true), Math.min(10000, Math.max(4500, String(t).length * 80))); }
+document.addEventListener("click", (e) => { if (e.target.closest("#toast")) { $("#toast").hidden = true; clearTimeout(toastT); } });
+const msgPartecipa = (base, r) => S.dati.utente?.tester
+  ? `${base} Con l'account di prova la tua lettera non conta per la community.`
+  : `${base} Hai ritrovato una lettera: la community ne ha trovate ${r.lettere}.`;
 // il primo del mese si scrive con l'ordinale: "1° dicembre"
 const primo = (t) => t.replace(/^1 /, "1° ");
 const dataLunga = (iso) => primo(new Date(iso + "T12:00:00Z").toLocaleDateString("it-IT", { day: "numeric", month: "long", timeZone: "UTC" }));
@@ -323,7 +328,7 @@ function pannelloGioco(g) {
   if (g.mia?.partecipato) {
     return h + `<span class="stato ok">${ICO.spunta} Sei in gara</span>
       <p>${g.tipo === "sfida" ? `Hai risposto <b>${esc(g.risposte[g.mia.risposta])}</b>. Scoprirai se è giusta a mezzanotte, insieme all'estrazione.` : "La tua partecipazione è registrata."}</p>
-      <p class="aiuto">Hai ritrovato una lettera per la community. Se non vinci ricevi comunque ${S.dati.edizione.biscotti_partecipazione} Biscotti di Tullio.</p>${chiude}</div>`;
+      <p class="aiuto">${u.tester ? "Con l'account di prova la tua lettera non conta per la community, non vinci e non ricevi Biscotti." : `Hai ritrovato una lettera per la community. Se non vinci ricevi comunque ${S.dati.edizione.biscotti_partecipazione} Biscotti di Tullio.`}</p>${chiude}</div>`;
   }
   if (g.tipo === "sfida") {
     return h + `<form id="form-sfida" data-n="${g.n}">${domandaSfida(g, true)}
@@ -943,7 +948,7 @@ document.addEventListener("click", async (e) => {
     if (act === "partecipa") {
       a.disabled = true;
       const r = await api(`/api/partecipa/${a.dataset.n}`, { method: "POST" });
-      toast("Sei in gara! Hai ritrovato una lettera"); S.dati.lettere = r.lettere; await carica();
+      toast(msgPartecipa("Sei in gara!", r)); S.dati.lettere = r.lettere; await carica();
     }
     if (act === "vai-azione") { $("#azione")?.scrollIntoView({ behavior: "smooth", block: "start" }); }
     if (act === "estrai" || act === "ripeti-estrazione") {
@@ -1034,7 +1039,7 @@ async function riempiEstrazioni() {
     const [c, t] = STATI_E[g.stato];
     return `<div class="dono">
       <div class="dono-t"><b>Giorno ${g.n} <span class="aiuto">${GG[new Date(g.data + "T12:00:00Z").getUTCDay()]} ${dataBreve(g.data)}</span></b><span class="fila">${pill(c, t)}</span></div>
-      <p class="aiuto">${g.partecipanti} ${g.partecipanti === 1 ? "partecipante" : "partecipanti"} · ${g.posti} ${g.posti === 1 ? "premio" : "premi"} in palio${g.eseguita_at ? ` · estratta il ${new Date(g.eseguita_at).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} (${esc(g.eseguita_da)})` : ""}</p>
+      <p class="aiuto">${g.partecipanti} ${g.partecipanti === 1 ? "partecipante" : "partecipanti"}${g.di_prova ? ` (+ ${g.di_prova} con account di prova, che non conta)` : ""} · ${g.posti} ${g.posti === 1 ? "premio" : "premi"} in palio${g.eseguita_at ? ` · estratta il ${new Date(g.eseguita_at).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} (${esc(g.eseguita_da)})` : ""}</p>
       ${g.premi.length ? `<ul class="ass-lista vinc-staff">${g.premi.map((p) => `<li><b>${esc(p.etichetta)}</b>
         ${p.vincitori.length ? `<ul>${p.vincitori.map((v) => `<li><span>${esc(v.nome)} <span class="aiuto">@${esc(v.username || "")}</span></span>${v.consegnato === 1 ? pill("ok", "Consegnato") : `<button class="btn quieto piccolo" data-act="riestrai-uno" data-id="${v.vincita}" data-nome="${esc(v.nome)}">Rinuncia: riestrai</button>`}</li>`).join("")}</ul>` : " → <i>nessun vincitore</i>"}</li>`).join("")}</ul>` : ""}
       ${g.log.some((l) => l.startsWith("Rinuncia")) ? `<p class="aiuto">${g.log.filter((l) => l.startsWith("Rinuncia")).map(esc).join("<br>")}</p>` : ""}
@@ -1053,7 +1058,7 @@ document.addEventListener("submit", async (e) => {
     if (!r) { toast("Scegli una risposta"); return; }
     try {
       const res = await api(`/api/partecipa/${f.dataset.n}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ risposta: Number(r.value) }) });
-      toast("Risposta registrata! Hai ritrovato una lettera"); S.dati.lettere = res.lettere; await carica();
+      toast(msgPartecipa("Risposta registrata!", res)); S.dati.lettere = res.lettere; await carica();
     } catch (err) { toast(err.message); }
   }
   if (f.classList.contains("form-assegna")) {
