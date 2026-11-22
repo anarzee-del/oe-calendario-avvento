@@ -292,20 +292,78 @@ function SIGILLO(ini = inizialiPg(S.dati.utente?.pg)) {
     ? `<text class="cera-ini" x="32" y="33" text-anchor="middle" dominant-baseline="central" font-size="${ini.length > 1 ? 17 : 22}">${esc(ini)}</text>`
     : `<path class="cera-segno" d="M32 20v24M21.6 26l20.8 12M21.6 38l20.8-12"/>`}</svg>`;
 }
-// Animazione: la lettera si piega a metà, scivola nella busta, il lembo si chiude e arriva il sigillo
-function animaSigillo(ini) {
+// Suoni (fatti dal browser, nessun file): carta che si piega, carta che scivola, lembo, timbro di ceralacca
+const suoniAttivi = () => { try { return localStorage.getItem("oe_suoni") !== "no"; } catch { return true; } };
+function suono(ctx, tipo, t0 = 0) {
+  if (!ctx) return;
+  const ora = ctx.currentTime + t0;
+  const rumore = (dur) => { const b = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; const s = ctx.createBufferSource(); s.buffer = b; return s; };
+  const filtro = (type, f, q = 1) => { const x = ctx.createBiquadFilter(); x.type = type; x.frequency.value = f; x.Q.value = q; return x; };
+  if (tipo === "piega" || tipo === "scivola" || tipo === "lembo") {
+    const dur = tipo === "piega" ? 0.55 : tipo === "scivola" ? 0.5 : 0.22;
+    const src = rumore(dur), f = filtro("bandpass", tipo === "piega" ? 2600 : tipo === "scivola" ? 1300 : 1800, tipo === "piega" ? 0.7 : 0.9), g = ctx.createGain();
+    const vol = tipo === "piega" ? 0.5 : tipo === "scivola" ? 0.28 : 0.3;
+    g.gain.setValueAtTime(0, ora);
+    if (tipo === "piega") { // crepitio: tanti piccoli scatti
+      for (let i = 0; i < 14; i++) { const t = ora + (i / 14) * dur; g.gain.setValueAtTime(vol * (0.25 + Math.random() * 0.75), t); g.gain.exponentialRampToValueAtTime(0.02, t + dur / 16); }
+    } else { g.gain.linearRampToValueAtTime(vol, ora + dur * 0.3); }
+    g.gain.exponentialRampToValueAtTime(0.001, ora + dur);
+    src.connect(f).connect(g).connect(ctx.destination); src.start(ora); src.stop(ora + dur);
+  }
+  if (tipo === "timbro") { // colpo sordo + piccolo schiocco
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "sine"; o.frequency.setValueAtTime(140, ora); o.frequency.exponentialRampToValueAtTime(45, ora + 0.18);
+    g.gain.setValueAtTime(0.9, ora); g.gain.exponentialRampToValueAtTime(0.001, ora + 0.25);
+    o.connect(g).connect(ctx.destination); o.start(ora); o.stop(ora + 0.26);
+    const c = rumore(0.04), fc = filtro("highpass", 2500), gc = ctx.createGain();
+    gc.gain.setValueAtTime(0.35, ora); gc.gain.exponentialRampToValueAtTime(0.001, ora + 0.04);
+    c.connect(fc).connect(gc).connect(ctx.destination); c.start(ora); c.stop(ora + 0.05);
+  }
+}
+
+// Animazione: la lettera vera si piega a metà, poi scivola nella busta, il lembo si chiude e arriva il sigillo
+const aspetta = (ms) => new Promise((ok) => setTimeout(ok, ms));
+async function animaSigillo(ini) {
   const wrap = $(".lettera-wrap"), carta = $("#lettera");
-  if (!wrap || !carta || matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
-  carta.hidden = true;
-  wrap.insertAdjacentHTML("beforeend", `<div class="sc" aria-hidden="true">
+  if (!wrap || !carta || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  let ctx = null;
+  if (suoniAttivi()) { try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch { ctx = null; } }
+  // 1. sparisce il sigillo in fondo alla lettera
+  const sig = carta.querySelector(".l-sigillo");
+  if (sig) { sig.style.transition = "opacity .2s"; sig.style.opacity = "0"; await aspetta(200); sig.style.display = "none"; }
+  // 2. la lettera si piega a metà: la metà di sopra si ribalta sopra quella di sotto
+  carta.scrollIntoView({ behavior: "smooth", block: "center" });
+  await aspetta(250);
+  const H = carta.offsetHeight;
+  const box = document.createElement("div");
+  box.className = "piega-box"; box.style.height = H + "px"; box.style.perspective = Math.max(1400, H * 3) + "px";
+  const giu = carta.cloneNode(true); giu.removeAttribute("id"); giu.classList.add("pz", "pz-giu");
+  const su = document.createElement("div"); su.className = "pz-su"; su.style.transformOrigin = `50% ${H / 2}px`;
+  const fronte = carta.cloneNode(true); fronte.removeAttribute("id"); fronte.classList.add("pz", "pz-f");
+  const retro = document.createElement("div"); retro.className = "pz-b"; retro.style.height = H / 2 + "px";
+  su.append(fronte, retro); box.append(giu, su);
+  carta.before(box); carta.hidden = true;
+  suono(ctx, "piega");
+  await su.animate([{ transform: "rotateX(0deg)" }, { transform: "rotateX(-180deg)" }], { duration: 850, easing: "cubic-bezier(.5,0,.25,1)", fill: "forwards" }).finished;
+  // 3. la lettera piegata rimpicciolisce e scende verso la busta
+  await box.animate([{ transform: "none", opacity: 1 }, { transform: `translateY(${Math.round(H * 0.2)}px) scale(.35)`, opacity: 0 }], { duration: 420, easing: "cubic-bezier(.5,0,.75,0)", fill: "forwards" }).finished;
+  box.remove();
+  // 4. la busta: la lettera (già piegata) entra, il lembo si chiude, arriva il sigillo
+  wrap.insertAdjacentHTML("beforeend", `<div class="sc da-lettera" aria-hidden="true">
     <div class="sc-busta"><div class="sc-retro"></div>
       <div class="sc-carta"><div class="sc-giu"></div><div class="sc-su"><div class="sc-f"></div><div class="sc-b"></div></div></div>
       <div class="sc-tasca"></div><div class="sc-lembo"></div>
       <div class="sc-cera">${SIGILLO(ini)}</div></div></div>`);
   $(".sc").scrollIntoView({ behavior: "smooth", block: "center" });
-  return new Promise((ok) => setTimeout(ok, 5300)); // ~3 s di animazione + 2 s per guardare il sigillo
+  suono(ctx, "scivola", 0.25); suono(ctx, "lembo", 1.1); suono(ctx, "timbro", 1.95);
+  await aspetta(2300 + 2000); // animazione della busta + 2 secondi per guardare il sigillo
+  ctx?.close?.();
 }
-function annullaAnimazione() { $(".sc")?.remove(); const c = $("#lettera"); if (c) c.hidden = false; }
+function annullaAnimazione() {
+  $(".sc")?.remove(); $(".piega-box")?.remove();
+  const c = $("#lettera"); if (c) { c.hidden = false; const sg = c.querySelector(".l-sigillo"); if (sg) { sg.style.display = ""; sg.style.opacity = ""; } }
+}
+const btnSuoni = () => `<button type="button" class="btn-suoni" data-act="suoni" aria-pressed="${suoniAttivi()}">${suoniAttivi() ? "Suoni: sì" : "Suoni: no"}</button>`;
 const inizialiStaff = () => inizialiPg(S.dati.utente?.pg || S.dati.utente?.nome) || "OE";
 function cartaLettera(l) {
   const par = paragrafi(l.testo);
@@ -326,9 +384,9 @@ function bloccoLettera(g, provaStaff = false) {
     <div class="lettera" id="lettera">${cartaLettera(l)}
       <div class="l-sigillo">${puo
         ? `<button class="btn-cera" data-act="sigilla" data-n="${g.n}"><span class="cera-dove">${SIGILLO()}</span><span>Sigilla la lettera</span></button>
-           <p class="aiuto">Hai letto? Chiudila con il sigillo di ceralacca: così partecipi all'estrazione di oggi.</p>`
+           <p class="aiuto">Hai letto? Chiudila con il sigillo di ceralacca: così partecipi all'estrazione di oggi.</p>${btnSuoni()}`
         : admin() ? `<button class="btn-cera" data-act="sigilla-prova"><span class="cera-dove">${SIGILLO(inizialiStaff())}</span><span>Prova il sigillo</span></button>
-           <p class="aiuto">Solo anteprima per lo staff: vedi l'animazione, ma non partecipi. I giocatori vedono le iniziali del proprio personaggio.</p>`
+           <p class="aiuto">Solo anteprima per lo staff: vedi l'animazione, ma non partecipi. I giocatori vedono le iniziali del proprio personaggio.</p>${btnSuoni()}`
         : `<span class="cera-vuota" aria-hidden="true"></span>`}</div>
     </div></div>`;
 }
@@ -1014,6 +1072,11 @@ document.addEventListener("click", async (e) => {
       toast(msgPartecipa("Sei in gara!", r)); S.dati.lettere = r.lettere; await carica();
     }
     if (act === "vai-azione") { ($(".btn-cera") ? $("#lettera .l-sigillo") : $("#azione"))?.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    if (act === "suoni") {
+      const nuovo = !suoniAttivi();
+      try { localStorage.setItem("oe_suoni", nuovo ? "si" : "no"); } catch {}
+      a.setAttribute("aria-pressed", String(nuovo)); a.textContent = nuovo ? "Suoni: sì" : "Suoni: no";
+    }
     if (act === "sigilla-prova") {
       await animaSigillo(inizialiStaff());
       const w = $(".lettera-wrap"); if (w) w.outerHTML = bloccoLettera(S.casella, true);

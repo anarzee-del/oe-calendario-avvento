@@ -324,3 +324,18 @@ video.video-bonus{width:100%;max-width:100%;height:auto;aspect-ratio:16/9;backgr
 .rileggi summary{cursor:pointer;font-family:var(--f-label);font-weight:600;color:var(--primary);min-height:32px}
 .rileggi .lettera{margin-top:12px;padding:20px 18px 14px;font-size:17px}
 @media (max-width:520px){.lettera{padding:22px 18px 18px;font-size:17px}.lettera-chiusa{flex-direction:column}}
+
+/* la lettera vera che si piega a metà */
+.piega-box{position:relative;transform-origin:50% 75%}
+.piega-box .pz{position:absolute;left:0;top:0;width:100%;margin:0}
+.pz-giu{clip-path:inset(50% 0 0 0)}
+.pz-su{position:absolute;inset:0;transform-style:preserve-3d}
+.pz-f{clip-path:inset(0 0 50% 0);backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.pz-b{position:absolute;left:0;top:0;width:100%;background:#F2E6CF;border-radius:4px 4px 0 0;transform:rotateX(180deg);backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  box-shadow:inset 0 -12px 18px -12px rgba(80,55,20,.25)}
+/* la busta parte con la lettera già piegata */
+.sc.da-lettera .sc-su{animation:none;transform:rotateX(-180deg)}
+.sc.da-lettera .sc-carta{animation-delay:.25s}
+.sc.da-lettera .sc-lembo{animation-delay:1.05s}
+.sc.da-lettera .sc-cera{animation-delay:1.65s}
+.btn-suoni{background:none;border:0;font-family:var(--f-label);font-size:13px;color:#6A5A45;text-decoration:underline;cursor:pointer;min-height:32px;padding:4px 8px}
