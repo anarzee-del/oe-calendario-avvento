@@ -299,15 +299,12 @@ function suono(ctx, tipo, t0 = 0) {
   const ora = ctx.currentTime + t0;
   const rumore = (dur) => { const b = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; const s = ctx.createBufferSource(); s.buffer = b; return s; };
   const filtro = (type, f, q = 1) => { const x = ctx.createBiquadFilter(); x.type = type; x.frequency.value = f; x.Q.value = q; return x; };
-  if (tipo === "piega" || tipo === "scivola" || tipo === "lembo") {
-    const dur = tipo === "piega" ? 0.55 : tipo === "scivola" ? 0.5 : 0.22;
-    const src = rumore(dur), f = filtro("bandpass", tipo === "piega" ? 2600 : tipo === "scivola" ? 1300 : 1800, tipo === "piega" ? 0.7 : 0.9), g = ctx.createGain();
-    const vol = tipo === "piega" ? 0.5 : tipo === "scivola" ? 0.28 : 0.3;
-    g.gain.setValueAtTime(0, ora);
-    if (tipo === "piega") { // crepitio: tanti piccoli scatti
-      for (let i = 0; i < 14; i++) { const t = ora + (i / 14) * dur; g.gain.setValueAtTime(vol * (0.25 + Math.random() * 0.75), t); g.gain.exponentialRampToValueAtTime(0.02, t + dur / 16); }
-    } else { g.gain.linearRampToValueAtTime(vol, ora + dur * 0.3); }
-    g.gain.exponentialRampToValueAtTime(0.001, ora + dur);
+  if (tipo === "piega") return fruscio(ctx, ora, scegliFruscio());
+  if (tipo === "scivola" || tipo === "lembo") {
+    const dur = tipo === "scivola" ? 0.5 : 0.22;
+    const src = rumore(dur), f = filtro("bandpass", tipo === "scivola" ? 1300 : 1800, 0.9), g = ctx.createGain();
+    const vol = tipo === "scivola" ? 0.28 : 0.3;
+    g.gain.setValueAtTime(0, ora); g.gain.linearRampToValueAtTime(vol, ora + dur * 0.3); g.gain.exponentialRampToValueAtTime(0.001, ora + dur);
     src.connect(f).connect(g).connect(ctx.destination); src.start(ora); src.stop(ora + dur);
   }
   if (tipo === "timbro") { // colpo sordo + piccolo schiocco
@@ -319,6 +316,42 @@ function suono(ctx, tipo, t0 = 0) {
     gc.gain.setValueAtTime(0.35, ora); gc.gain.exponentialRampToValueAtTime(0.001, ora + 0.04);
     c.connect(fc).connect(gc).connect(ctx.destination); c.start(ora); c.stop(ora + 0.05);
   }
+}
+
+// Il fruscio della carta che si piega, in tre varianti da provare (lo staff sceglie quella che suona meglio)
+const FRUSCI = { a: "Crepitio fine", b: "Fruscio morbido", c: "Carta spessa" };
+const scegliFruscio = () => { try { const v = localStorage.getItem("oe_fruscio"); return FRUSCI[v] ? v : "a"; } catch { return "a"; } };
+function fruscio(ctx, ora, v) {
+  const P = {
+    a: { dur: 0.75, rate: 260, lung: [0.4, 2.2], crep: 0.55, hp: 2400, sw: 0.18, swf: 1800 },
+    b: { dur: 0.8, rate: 40, lung: [1, 4], crep: 0.12, hp: 1500, sw: 0.32, swf: 1100 },
+    c: { dur: 0.7, rate: 90, lung: [1.5, 5], crep: 0.8, hp: 900, sw: 0.25, swf: 700 },
+  }[v];
+  const sr = ctx.sampleRate, N = Math.ceil(sr * P.dur);
+  const inv = (t) => Math.pow(Math.sin(Math.PI * Math.min(1, t / P.dur)), 1.4); // sale e scende con il movimento
+  // scricchiolii: tanti piccoli scatti irregolari, più fitti a metà piega
+  const bc = ctx.createBuffer(1, N, sr), c = bc.getChannelData(0);
+  let t = 0;
+  while (t < P.dur) {
+    const r = P.rate * (0.15 + inv(t));
+    t += -Math.log(1 - Math.random()) / r;
+    const i0 = Math.floor(t * sr), L = Math.floor(sr * (P.lung[0] + Math.random() * (P.lung[1] - P.lung[0])) / 1000);
+    const a = Math.pow(Math.random(), 2.2) * inv(t);
+    for (let i = 0; i < L && i0 + i < N; i++) c[i0 + i] += a * Math.exp(-5 * i / L) * (Math.random() * 2 - 1);
+  }
+  // fruscio di fondo: rumore "morbido" che segue il movimento
+  const bs = ctx.createBuffer(1, N, sr), w = bs.getChannelData(0);
+  let y = 0;
+  for (let i = 0; i < N; i++) { y += 0.18 * ((Math.random() * 2 - 1) - y); w[i] = y * inv(i / sr) * 2.2; }
+  const sc = ctx.createBufferSource(); sc.buffer = bc;
+  const ss = ctx.createBufferSource(); ss.buffer = bs;
+  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = P.hp;
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = P.swf; bp.Q.value = 0.6;
+  const gc = ctx.createGain(); gc.gain.value = P.crep;
+  const gs = ctx.createGain(); gs.gain.value = P.sw;
+  sc.connect(hp).connect(gc).connect(ctx.destination);
+  ss.connect(bp).connect(gs).connect(ctx.destination);
+  sc.start(ora); ss.start(ora);
 }
 
 // Animazione: la lettera vera si piega a metà, poi scivola nella busta, il lembo si chiude e arriva il sigillo
@@ -386,7 +419,8 @@ function bloccoLettera(g, provaStaff = false) {
         ? `<button class="btn-cera" data-act="sigilla" data-n="${g.n}"><span class="cera-dove">${SIGILLO()}</span><span>Sigilla la lettera</span></button>
            <p class="aiuto">Hai letto? Chiudila con il sigillo di ceralacca: così partecipi all'estrazione di oggi.</p>${btnSuoni()}`
         : admin() ? `<button class="btn-cera" data-act="sigilla-prova"><span class="cera-dove">${SIGILLO(inizialiStaff())}</span><span>Prova il sigillo</span></button>
-           <p class="aiuto">Solo anteprima per lo staff: vedi l'animazione, ma non partecipi. I giocatori vedono le iniziali del proprio personaggio.</p>${btnSuoni()}`
+           <p class="aiuto">Solo anteprima per lo staff: vedi l'animazione, ma non partecipi. I giocatori vedono le iniziali del proprio personaggio.</p>${btnSuoni()}
+           <div class="scegli-fruscio"><span>Fruscio della carta (prova, solo staff):</span>${Object.entries(FRUSCI).map(([k, t]) => `<button type="button" class="btn-suoni" data-act="fruscio" data-v="${k}" aria-pressed="${scegliFruscio() === k}">${k.toUpperCase()} · ${t}</button>`).join("")}</div>`
         : `<span class="cera-vuota" aria-hidden="true"></span>`}</div>
     </div></div>`;
 }
@@ -1076,6 +1110,12 @@ document.addEventListener("click", async (e) => {
       const nuovo = !suoniAttivi();
       try { localStorage.setItem("oe_suoni", nuovo ? "si" : "no"); } catch {}
       a.setAttribute("aria-pressed", String(nuovo)); a.textContent = nuovo ? "Suoni: sì" : "Suoni: no";
+    }
+    if (act === "fruscio") {
+      try { localStorage.setItem("oe_fruscio", a.dataset.v); } catch {}
+      document.querySelectorAll("[data-act=fruscio]").forEach((x) => x.setAttribute("aria-pressed", String(x === a)));
+      let ctx = null; try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch {}
+      if (ctx) { suono(ctx, "piega"); setTimeout(() => ctx.close?.(), 1500); }
     }
     if (act === "sigilla-prova") {
       await animaSigillo(inizialiStaff());
