@@ -292,6 +292,20 @@ function SIGILLO(ini = inizialiPg(S.dati.utente?.pg)) {
     ? `<text class="cera-ini" x="32" y="33" text-anchor="middle" dominant-baseline="central" font-size="${ini.length > 1 ? 17 : 22}">${esc(ini)}</text>`
     : `<path class="cera-segno" d="M32 20v24M21.6 26l20.8 12M21.6 38l20.8-12"/>`}</svg>`;
 }
+// Animazione: la lettera si piega a metà, scivola nella busta, il lembo si chiude e arriva il sigillo
+function animaSigillo(ini) {
+  const wrap = $(".lettera-wrap"), carta = $("#lettera");
+  if (!wrap || !carta || matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
+  carta.hidden = true;
+  wrap.insertAdjacentHTML("beforeend", `<div class="sc" aria-hidden="true">
+    <div class="sc-busta"><div class="sc-retro"></div>
+      <div class="sc-carta"><div class="sc-giu"></div><div class="sc-su"><div class="sc-f"></div><div class="sc-b"></div></div></div>
+      <div class="sc-tasca"></div><div class="sc-lembo"></div>
+      <div class="sc-cera">${SIGILLO(ini)}</div></div></div>`);
+  $(".sc").scrollIntoView({ behavior: "smooth", block: "center" });
+  return new Promise((ok) => setTimeout(ok, 3300));
+}
+function annullaAnimazione() { $(".sc")?.remove(); const c = $("#lettera"); if (c) c.hidden = false; }
 const inizialiStaff = () => inizialiPg(S.dati.utente?.pg || S.dati.utente?.nome) || "OE";
 function cartaLettera(l) {
   const par = paragrafi(l.testo);
@@ -1001,21 +1015,17 @@ document.addEventListener("click", async (e) => {
     }
     if (act === "vai-azione") { ($(".btn-cera") ? $("#lettera .l-sigillo") : $("#azione"))?.scrollIntoView({ behavior: "smooth", block: "center" }); }
     if (act === "sigilla-prova") {
-      const carta = $("#lettera");
-      carta?.classList.add("timbra");
-      await new Promise((ok) => setTimeout(ok, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1400));
+      await animaSigillo(inizialiStaff());
       const w = $(".lettera-wrap"); if (w) w.outerHTML = bloccoLettera(S.casella, true);
     }
     if (act === "riapri-lettera") { const w = $(".lettera-chiusa"); if (w) w.outerHTML = bloccoLettera(S.casella); }
     if (act === "vai-lettera") { $("#lettera .l-sigillo")?.scrollIntoView({ behavior: "smooth", block: "center" }); }
     if (act === "sigilla") {
       a.disabled = true;
-      const carta = $("#lettera"), piano = matchMedia("(prefers-reduced-motion: reduce)").matches;
-      carta?.classList.add("timbra");
-      const attesa = new Promise((ok) => setTimeout(ok, piano ? 0 : 1400));
+      const attesa = animaSigillo();
       let r;
       try { r = await api(`/api/partecipa/${a.dataset.n}`, { method: "POST" }); }
-      catch (err) { carta?.classList.remove("timbra"); a.disabled = false; throw err; }
+      catch (err) { annullaAnimazione(); a.disabled = false; throw err; }
       await attesa;
       toast(msgPartecipa("Lettera sigillata, sei in gara!", r)); S.dati.lettere = r.lettere; await carica();
     }

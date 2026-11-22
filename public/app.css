@@ -294,12 +294,27 @@ video.video-bonus{width:100%;max-width:100%;height:auto;aspect-ratio:16/9;backgr
 .cera-anello{fill:none;stroke:var(--cera-scura);stroke-width:2.2;opacity:.75}
 .cera-segno{stroke:var(--cera-scura);stroke-width:3;stroke-linecap:round;fill:none;opacity:.8}
 .cera-ini{fill:var(--cera-scura);font-family:var(--f-display);font-weight:800;letter-spacing:.02em;paint-order:stroke;stroke:var(--cera-luce);stroke-width:.8px}
-/* animazione: il sigillo scende e si schiaccia, poi la lettera si ripiega */
-.lettera.timbra .cera-dove{animation:cera-giu .55s cubic-bezier(.3,1.4,.5,1) both}
-.lettera.timbra{animation:piega .7s .75s cubic-bezier(.4,0,.2,1) both}
-@keyframes cera-giu{0%{transform:translateY(-60px) scale(1.5);opacity:0}60%{transform:translateY(0) scale(.92);opacity:1}100%{transform:scale(1)}}
-@keyframes piega{to{transform:perspective(900px) rotateX(70deg) scaleY(.4);opacity:.15}}
-@media (prefers-reduced-motion: reduce){.lettera.timbra,.lettera.timbra .cera-dove{animation:none}}
+/* animazione: piega, busta, lembo, sigillo (circa 3 secondi) */
+.sc{display:grid;place-items:center;padding:10px 0 18px;animation:sc-in .25s ease-out both}
+.sc-busta{position:relative;width:260px;height:290px;perspective:900px}
+.sc-retro{position:absolute;left:20px;top:160px;width:220px;height:130px;background:#D9BF8C;border-radius:4px;box-shadow:0 12px 24px -14px rgba(40,25,10,.6)}
+.sc-carta{position:absolute;left:50px;top:0;width:160px;height:150px;--carta:#FFFBF3;transform-style:preserve-3d;z-index:2;animation:sc-scivola .7s 1.05s cubic-bezier(.5,0,.3,1) both}
+.sc-giu,.sc-f,.sc-b{position:absolute;left:0;width:100%;height:75px;border-radius:2px}
+.sc-giu{top:75px;background:var(--carta) repeating-linear-gradient(180deg,transparent 0 13px,#D9C7A6 13px 14px) 14px 6px/132px 66px no-repeat;box-shadow:0 2px 6px rgba(40,25,10,.25)}
+.sc-su{position:absolute;left:0;top:0;width:100%;height:75px;transform-origin:50% 100%;transform-style:preserve-3d;animation:sc-piega .75s .25s cubic-bezier(.5,0,.25,1) both}
+.sc-f{top:0;background:var(--carta) repeating-linear-gradient(180deg,transparent 0 13px,#D9C7A6 13px 14px) 14px 12px/132px 60px no-repeat;backface-visibility:hidden;box-shadow:0 -1px 4px rgba(40,25,10,.15)}
+.sc-b{top:0;background:#F2E6CF;transform:rotateX(180deg);backface-visibility:hidden}
+.sc-tasca{position:absolute;left:20px;top:160px;width:220px;height:130px;z-index:3;background:#E9D3A6;border-radius:4px;
+  clip-path:polygon(0 0,50% 58%,100% 0,100% 100%,0 100%);box-shadow:inset 0 -1px 0 rgba(0,0,0,.05)}
+.sc-lembo{position:absolute;left:20px;top:160px;width:220px;height:82px;z-index:1;background:#DFC596;clip-path:polygon(0 0,100% 0,50% 100%);
+  transform-origin:50% 0;transform:rotateX(180deg);animation:sc-chiudi .55s 1.85s cubic-bezier(.4,0,.2,1) both}
+.sc-cera{position:absolute;left:100px;top:212px;width:60px;height:60px;z-index:6;opacity:0;filter:drop-shadow(0 3px 3px rgba(60,10,10,.4));animation:sc-cera .5s 2.45s cubic-bezier(.3,1.5,.5,1) both}
+@keyframes sc-in{from{opacity:0;transform:translateY(8px)}}
+@keyframes sc-piega{to{transform:rotateX(-180deg)}}
+@keyframes sc-scivola{to{transform:translateY(135px) scale(.92)}}
+@keyframes sc-chiudi{0%{transform:rotateX(180deg);z-index:1}49%{z-index:1}50%{z-index:5}100%{transform:rotateX(0deg);z-index:5}}
+@keyframes sc-cera{0%{opacity:0;transform:translateY(-70px) scale(1.6)}60%{opacity:1;transform:translateY(0) scale(.9)}100%{opacity:1;transform:scale(1)}}
+@media (max-width:360px){.sc-busta{transform:scale(.85)}}
 /* dopo: busta chiusa con il sigillo */
 .lettera-chiusa{display:flex;gap:18px;align-items:flex-start;margin-top:28px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
 .lettera-chiusa p{margin:4px 0 8px}
