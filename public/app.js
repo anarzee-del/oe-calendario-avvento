@@ -191,14 +191,14 @@ function busta(g) {
   const cls = ["busta", st === "oggi" ? "oggi" : st === "passata" ? "aperta" : "sigillata", g.n === S.dati.giorni.length ? "natale" : "", fb ? "con-fb" : ""].join(" ");
   let nota = "";
   if (st === "sigillata") { const k = giorniTra(S.dati.oggi, g.data); nota = k === 1 ? "domani" : `tra ${k} giorni`; }
-  const lab = `Casella ${g.n}, ${GG_LUNGO[g.wd]} ${dataLunga(g.data)}${g.etichetta ? ", " + g.etichetta : ""}${g.tipo === "sfida" ? ", giorno di sfida" : ""}, ${st === "oggi" ? "aperta oggi" : st === "passata" ? "già aperta" : "ancora sigillata"}${part ? ", hai partecipato" : ""}`;
+  const lab = `Casella ${g.n}, ${GG_LUNGO[g.wd]} ${dataLunga(g.data)}${g.etichetta ? ", " + g.etichetta : ""}${g.tipo === "sfida" ? ", giorno di sfida" : g.tipo === "lettera" ? ", lettera ritrovata" : ""}, ${st === "oggi" ? "aperta oggi" : st === "passata" ? "già aperta" : "ancora sigillata"}${part ? ", hai partecipato" : ""}`;
   return `<a class="${cls}" href="#casella-${g.n}" aria-label="${esc(lab)}">
     <svg class="forma" viewBox="0 0 100 75" preserveAspectRatio="none" aria-hidden="true">
       ${st === "passata" ? '<rect class="foglio" x="14" y="6" width="72" height="40" rx="1"/>' : ""}
       <path class="piega" d="M0 75 L42 38 M100 75 L58 38"/>
       <path class="lembo" d="M0 0 L50 42 L100 0 Z"/>
     </svg>
-    ${g.tipo === "sfida" ? `<span class="nastro">${esc(g.etichetta || "Sfida")}</span>` : ""}
+    ${g.tipo === "sfida" ? `<span class="nastro">${esc(g.etichetta || "Sfida")}</span>` : g.tipo === "lettera" ? `<span class="nastro cera">${esc(g.etichetta || "Lettera")}</span>` : ""}
     ${fb ? `<span class="fb" aria-hidden="true"><span class="fb-in" style="display:block"><img src="${esc(fb)}" alt="" loading="lazy"></span></span>` : ""}
     <span class="gg">${GG[g.wd]}</span>
     ${st === "oggi" && !part ? `<span class="sigillo" aria-hidden="true">${ICO.fiocco}</span>` : ""}
@@ -243,7 +243,7 @@ function vCalendario() {
   const mese = new Date(d.edizione.inizio + "T12:00:00Z").toLocaleDateString("it-IT", { month: "long", year: "numeric", timeZone: "UTC" });
   return `${avviso}
   <div class="cal-head"><h2 style="text-transform:capitalize">${esc(mese)}</h2>
-    <div class="legenda"><span><i class="dot" style="background:var(--accent)"></i>Oggi</span><span><i class="dot" style="background:var(--primary)"></i>Giorno di sfida</span>${connesso() ? `<span><i class="dot" style="background:var(--ok)"></i>Hai partecipato</span>` : ""}</div></div>
+    <div class="legenda"><span><i class="dot" style="background:var(--accent)"></i>Oggi</span><span><i class="dot" style="background:var(--primary)"></i>Giorno di sfida</span>${S.dati.giorni.some((x) => x.tipo === "lettera") ? `<span><i class="dot" style="background:var(--cera)"></i>Lettera ritrovata</span>` : ""}${connesso() ? `<span><i class="dot" style="background:var(--ok)"></i>Hai partecipato</span>` : ""}</div></div>
   <div class="griglia">${d.giorni.map(busta).join("")}</div>
   ${bustaBonus()}
   <div class="sotto">${pannelloCome()}
@@ -273,12 +273,44 @@ async function vCasella(n) {
       <span class="label">Capitolo ${g.n} · ${GG_LUNGO[g.wd]} ${dataLunga(g.data)}${g.etichetta ? " · " + esc(g.etichetta) : ""}</span>
       <h2>${esc(g.titolo || "Capitolo " + g.n)}</h2>
       ${g.immagine ? `<img class="illustrazione" src="${esc(g.immagine)}" alt="Immagine del capitolo ${g.n}">` : ""}
-      <div class="storia">${testo.length ? testo.map((p) => `<p>${esc(p)}</p>`).join("") : `<p class="vuoto">Il testo di questo capitolo non è ancora stato scritto.</p>`}</div>
+      <div class="storia">${testo.length ? testo.map((p) => `<p>${esc(p)}</p>`).join("") : g.tipo === "lettera" ? "" : `<p class="vuoto">Il testo di questo capitolo non è ancora stato scritto.</p>`}</div>
+      ${g.tipo === "lettera" ? bloccoLettera(g) : ""}
     </article>
     <aside class="azione">${pannelloGioco(g)}</aside>
   </div>
-  ${puoPartecipare(g) ? `<div class="barra-partecipa" id="barra-partecipa"><button class="btn grande" data-act="vai-azione">${g.tipo === "sfida" ? "Rispondi alla sfida" : "Partecipa all'estrazione"}</button></div>` : ""}`;
+  ${puoPartecipare(g) ? `<div class="barra-partecipa" id="barra-partecipa"><button class="btn grande" data-act="vai-azione">${g.tipo === "sfida" ? "Rispondi alla sfida" : g.tipo === "lettera" ? "Sigilla la lettera" : "Partecipa all'estrazione"}</button></div>` : ""}`;
   osservaBarra();
+}
+
+// Giorno "lettera ritrovata": la lettera si legge aperta e si chiude con il sigillo di ceralacca per partecipare
+// Il sigillo porta le iniziali del personaggio di chi chiude la lettera (es. "Altea Skysinger" → AS); senza nome, un fiocco
+const inizialiPg = (nome) => String(nome || "").trim().split(/\s+/).map((w) => w.replace(/^[^\p{L}]+/u, "")[0] || "").join("").slice(0, 2).toUpperCase();
+function SIGILLO(ini = inizialiPg(S.dati.utente?.pg)) {
+  return `<svg class="cera-svg" viewBox="0 0 64 64" aria-hidden="true"><path class="cera-bordo" d="M32 3c5 0 7 3 11 4s8 0 10 4 0 7 2 11 5 6 5 10-3 7-5 11 0 8-2 11-6 3-10 4-6 3-11 3-7-3-11-3-8 0-10-4-0-7-2-11-5-6-5-11 3-6 5-10 0-8 2-11 6-3 10-4 6-4 11-4z"/><circle class="cera-anello" cx="32" cy="32" r="19"/>${ini
+    ? `<text class="cera-ini" x="32" y="33" text-anchor="middle" dominant-baseline="central" font-size="${ini.length > 1 ? 17 : 22}">${esc(ini)}</text>`
+    : `<path class="cera-segno" d="M32 20v24M21.6 26l20.8 12M21.6 38l20.8-12"/>`}</svg>`;
+}
+function cartaLettera(l) {
+  const par = paragrafi(l.testo);
+  return `${l.apertura ? `<p class="l-apertura">${esc(l.apertura)}</p>` : ""}
+    ${par.length ? par.map((p) => `<p>${esc(p)}</p>`).join("") : `<p class="vuoto">Il testo della lettera non è ancora stato scritto.</p>`}
+    ${l.firma ? `<p class="l-firma">${esc(l.firma)}</p>` : ""}`;
+}
+function bloccoLettera(g) {
+  const l = g.lettera || {};
+  if (g.mia?.partecipato) {
+    return `<div class="lettera-chiusa"><div class="busta-cera">${SIGILLO()}</div>
+      <div><span class="label">Lettera ritrovata</span><p><b>Hai sigillato la lettera.</b> Il moogle la riporterà a chi la aspettava.</p>
+      <details class="rileggi"><summary>Rileggi la lettera</summary><div class="lettera">${cartaLettera(l)}</div></details></div></div>`;
+  }
+  const puo = puoPartecipare(g);
+  return `<div class="lettera-wrap"><span class="label">Una lettera ritrovata</span>
+    <div class="lettera" id="lettera">${cartaLettera(l)}
+      <div class="l-sigillo">${puo
+        ? `<button class="btn-cera" data-act="sigilla" data-n="${g.n}"><span class="cera-dove">${SIGILLO()}</span><span>Sigilla la lettera</span></button>
+           <p class="aiuto">Hai letto? Chiudila con il sigillo di ceralacca: così partecipi all'estrazione di oggi.</p>`
+        : `<span class="cera-vuota" aria-hidden="true"></span>`}</div>
+    </div></div>`;
 }
 
 const puoPartecipare = (g) => { const u = S.dati.utente; return !!u && u.ruolo !== "admin" && !!u.pg && g.stato === "oggi" && !g.estratta && !g.mia?.partecipato; };
@@ -323,11 +355,11 @@ function pannelloGioco(g) {
   if (g.stato === "passata") return h + `<p class="prossimamente">Estrazione in corso: ricarica la pagina tra qualche minuto.</p></div>`;
   if (g.stato === "sigillata") return h + (g.tipo === "sfida" ? domandaSfida(g, false) : "") + `<p class="prossimamente">Anteprima: il ${dataLunga(g.data)} qui i giocatori troveranno il pulsante per partecipare.</p></div>`;
   if (!u) return h + `<a class="btn-discord" href="/api/auth/login">Accedi con Discord per partecipare</a>${NOTA_LOGIN}${chiude}</div>`;
-  if (u.ruolo === "admin") return h + (g.tipo === "sfida" ? domandaSfida(g, false) : "") + `<p class="prossimamente">Lo staff non partecipa alle estrazioni. I giocatori qui vedono il pulsante "Partecipa"${g.tipo === "sfida" ? " e la domanda" : ""}.</p>${chiude}</div>`;
+  if (u.ruolo === "admin") return h + (g.tipo === "sfida" ? domandaSfida(g, false) : "") + `<p class="prossimamente">Lo staff non partecipa alle estrazioni. ${g.tipo === "lettera" ? "I giocatori, in fondo alla lettera, trovano il sigillo di ceralacca per chiuderla e partecipare." : `I giocatori qui vedono il pulsante "Partecipa"${g.tipo === "sfida" ? " e la domanda" : ""}.`}</p>${chiude}</div>`;
   if (!u.pg) return h + `<p>Prima di partecipare indica il personaggio a cui consegnare i premi.</p><a class="btn" href="#profilo">Completa il profilo</a>${chiude}</div>`;
   if (g.mia?.partecipato) {
     return h + `<span class="stato ok">${ICO.spunta} Sei in gara</span>
-      <p>${g.tipo === "sfida" ? `Hai risposto <b>${esc(g.risposte[g.mia.risposta])}</b>. Scoprirai se è giusta a mezzanotte, insieme all'estrazione.` : "La tua partecipazione è registrata."}</p>
+      <p>${g.tipo === "sfida" ? `Hai risposto <b>${esc(g.risposte[g.mia.risposta])}</b>. Scoprirai se è giusta a mezzanotte, insieme all'estrazione.` : g.tipo === "lettera" ? "Hai sigillato la lettera: la tua partecipazione è registrata." : "La tua partecipazione è registrata."}</p>
       <p class="aiuto">${u.tester ? "Con l'account di prova la tua lettera non conta per la community, non vinci e non ricevi Biscotti." : `Hai ritrovato una lettera per la community. Se non vinci ricevi comunque ${S.dati.edizione.biscotti_partecipazione} Biscotti di Tullio.`}</p>${chiude}</div>`;
   }
   if (g.tipo === "sfida") {
@@ -335,6 +367,7 @@ function pannelloGioco(g) {
       <button class="btn grande" type="submit">Invia la risposta</button>
       <p class="aiuto" style="margin-top:8px">Una sola risposta, non modificabile. Con la risposta sbagliata partecipi comunque, con 1 biglietto.</p></form>${chiude}</div>`;
   }
+  if (g.tipo === "lettera") return h + `<p>Leggi la lettera ritrovata e chiudila con il <b>sigillo di ceralacca</b>: così partecipi all'estrazione.</p><button class="btn grande" data-act="vai-lettera">Vai alla lettera</button>${chiude}</div>`;
   return h + `<button class="btn grande" data-act="partecipa" data-n="${g.n}">Partecipa all'estrazione</button>${chiude}</div>`;
 }
 
@@ -428,7 +461,7 @@ function listaGiorni() {
     return `<div class="giorno-card">
       <span class="gn">${x.n}<small>${GG[x.wd]} ${dataBreve(x.data)}</small></span>
       <span class="mini">${x.img_ver ? `<img src="/api/img/${x.n}/thumb?v=${x.img_ver}" alt="" loading="lazy">` : ""}</span>
-      <span class="gt"><b>${esc(x.titolo || "Senza titolo")}</b><span class="fila">${pill(c, t)}${x.in_palio?.length ? "" : pill("warn", "Premi da abbinare")}${x.tipo === "sfida" ? pill("", "Sfida" + (x.etichetta ? " · " + esc(x.etichetta) : "")) : ""}</span><span class="aiuto">${x.in_palio?.length ? "In palio: " + x.in_palio.map((c) => esc(c.categoria) + (c.vincitori > 1 ? " ×" + c.vincitori : "")).join(", ") : ""}</span></span>
+      <span class="gt"><b>${esc(x.titolo || "Senza titolo")}</b><span class="fila">${pill(c, t)}${x.in_palio?.length ? "" : pill("warn", "Premi da abbinare")}${x.tipo === "sfida" ? pill("", "Sfida" + (x.etichetta ? " · " + esc(x.etichetta) : "")) : x.tipo === "lettera" ? pill("", "Lettera ritrovata") : ""}</span><span class="aiuto">${x.in_palio?.length ? "In palio: " + x.in_palio.map((c) => esc(c.categoria) + (c.vincitori > 1 ? " ×" + c.vincitori : "")).join(", ") : ""}</span></span>
       <button class="btn sec" data-staffday="${x.n}">Modifica</button></div>`;
   }).join("")}${S.adminBonus?.traguardo ? (() => {
     const b = S.adminBonus, [c, t] = PILL_CAP[b.stato_capitolo] || PILL_CAP.manca, [c2, t2] = statoBonusStaff(b);
@@ -473,9 +506,15 @@ function editorGiorno(g) {
     ${bonus ? pannelloVideo(g) + pannelloBonus(g) : `<div class="pannello" style="margin-top:16px">
       <h3 style="font-size:22px;margin-bottom:10px">Il giorno</h3>
       <div class="due">
-        <div class="campo"><label for="e-tipo">Tipo di giorno</label><select id="e-tipo"><option value="sorteggio" ${!sfida ? "selected" : ""}>Sorteggio</option><option value="sfida" ${sfida ? "selected" : ""}>Sfida</option></select></div>
-        <div class="campo"><label for="e-etichetta">Etichetta sul nastro</label><input type="text" id="e-etichetta" maxlength="24" value="${esc(g.etichetta)}" placeholder="Es. S. Nicola"><span class="aiuto">Compare sulla busta nei giorni di sfida. Vuota: "Sfida".</span></div>
+        <div class="campo"><label for="e-tipo">Tipo di giorno</label><select id="e-tipo"><option value="sorteggio" ${g.tipo !== "sfida" && g.tipo !== "lettera" ? "selected" : ""}>Sorteggio</option><option value="sfida" ${sfida ? "selected" : ""}>Sfida</option><option value="lettera" ${g.tipo === "lettera" ? "selected" : ""}>Lettera ritrovata</option></select></div>
+        <div class="campo"><label for="e-etichetta">Etichetta sul nastro</label><input type="text" id="e-etichetta" maxlength="24" value="${esc(g.etichetta)}" placeholder="Es. S. Nicola"><span class="aiuto">Compare sulla busta nei giorni di sfida (vuota: "Sfida") e di lettera ritrovata (vuota: "Lettera").</span></div>
         <div class="campo"><span class="label" style="color:var(--ink)">Premi in palio</span>${g.in_palio?.length ? chipsPalio(g.in_palio) : `<p style="font-size:16px">Nessun premio assegnato</p>`}<span class="aiuto">Si assegna dalla sezione <button type="button" class="btn quieto piccolo" data-sez="premi">Premi e aiutanti</button></span></div>
+      </div>
+      <div id="ed-lettera" ${g.tipo === "lettera" ? "" : "hidden"}>
+        <p class="sub">Il giocatore legge la lettera, aperta, sotto il testo del capitolo (il capitolo può anche restare vuoto). In fondo trova il sigillo di ceralacca: chiudendo la lettera partecipa all'estrazione, come in un giorno di sorteggio.</p>
+        <div class="campo"><label for="e-l-ap">Intestazione</label><input type="text" id="e-l-ap" maxlength="120" value="${esc(g.lettera?.apertura || "")}" placeholder="Es. Caro Tullio,"></div>
+        <div class="campo"><label for="e-l-testo">Testo della lettera</label><textarea id="e-l-testo" style="min-height:200px">${esc(g.lettera?.testo || "")}</textarea><span class="aiuto">Lascia una riga vuota tra un paragrafo e l'altro.</span></div>
+        <div class="campo"><label for="e-l-firma">Firma</label><input type="text" id="e-l-firma" maxlength="120" value="${esc(g.lettera?.firma || "")}" placeholder="Es. Con affetto, Mog"></div>
       </div>
       <div id="ed-sfida" ${sfida ? "" : "hidden"}>
         <div class="campo"><label for="e-domanda">Domanda della sfida</label><input type="text" id="e-domanda" maxlength="300" value="${esc(g.domanda)}"></div>
@@ -689,7 +728,7 @@ document.addEventListener("input", (e) => {
 document.addEventListener("change", async (e) => {
   const t = e.target;
   if (t.id === "dc") { $("#mondo").innerHTML = MONDI[t.value].map((m) => `<option>${m}</option>`).join(""); }
-  if (t.id === "e-tipo") { $("#ed-sfida").hidden = t.value !== "sfida"; }
+  if (t.id === "e-tipo") { $("#ed-sfida").hidden = t.value !== "sfida"; $("#ed-lettera").hidden = t.value !== "lettera"; }
   if (t.id === "e-img" && t.files[0]) {
     const n = Number($("#form-giorno").dataset.n);
     const url = URL.createObjectURL(t.files[0]);
@@ -731,6 +770,7 @@ document.addEventListener("submit", async (e) => {
     const body = {
       titolo: $("#e-titolo").value, testo: $("#e-testo").value, stato_capitolo: $("#e-stato").value,
       tipo: $("#e-tipo")?.value, etichetta: $("#e-etichetta")?.value || "", fuoco: $("#e-fuoco").value,
+      lettera: $("#e-l-testo") ? { apertura: $("#e-l-ap").value, testo: $("#e-l-testo").value, firma: $("#e-l-firma").value } : null,
       domanda: $("#e-domanda")?.value || "", risposte: $("#r0") ? [0, 1, 2, 3].map((i) => $("#r" + i).value) : [], giusta: giusta ? Number(giusta.value) : null,
     };
     try { await putJson(`/api/admin/giorno/${n}`, body); toast(n === 0 ? "Capitolo bonus salvato" : `Casella ${n} salvata`); $("#ed-mod").hidden = true; S.dati = await api(conSim("/api/stato")); }
@@ -953,7 +993,19 @@ document.addEventListener("click", async (e) => {
       const r = await api(`/api/partecipa/${a.dataset.n}`, { method: "POST" });
       toast(msgPartecipa("Sei in gara!", r)); S.dati.lettere = r.lettere; await carica();
     }
-    if (act === "vai-azione") { $("#azione")?.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    if (act === "vai-azione") { ($(".btn-cera") ? $("#lettera .l-sigillo") : $("#azione"))?.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    if (act === "vai-lettera") { $("#lettera .l-sigillo")?.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    if (act === "sigilla") {
+      a.disabled = true;
+      const carta = $("#lettera"), piano = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      carta?.classList.add("timbra");
+      const attesa = new Promise((ok) => setTimeout(ok, piano ? 0 : 1400));
+      let r;
+      try { r = await api(`/api/partecipa/${a.dataset.n}`, { method: "POST" }); }
+      catch (err) { carta?.classList.remove("timbra"); a.disabled = false; throw err; }
+      await attesa;
+      toast(msgPartecipa("Lettera sigillata, sei in gara!", r)); S.dati.lettere = r.lettere; await carica();
+    }
     if (act === "estrai" || act === "ripeti-estrazione") {
       if (act === "ripeti-estrazione" && a.dataset.conferma !== "1") { a.dataset.conferma = "1"; a.textContent = "Conferma: cancella i vincitori e riestrai"; a.classList.add("conferma"); return; }
       a.disabled = true;

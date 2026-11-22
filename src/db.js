@@ -1,6 +1,6 @@
 // Schema del database e dati iniziali. Lo schema si crea da solo alla prima richiesta.
 
-const SCHEMA_VERSION = 23;
+const SCHEMA_VERSION = 24;
 
 // Ogni versione contiene solo le modifiche rispetto alla precedente.
 const V1 = [
@@ -172,6 +172,8 @@ const V20 = [`UPDATE editions SET regolamento = REPLACE(regolamento, '# Limite d
 L''estrazione premia la costanza: ogni giorno in cui partecipi conta. Chi non ha ancora vinto niente ha sempre la precedenza; dopo, i premi vanno a chi ha vinto meno rispetto ai giorni giocati, quindi chi partecipa più spesso ha più occasioni. A parità decide la sorte. Nessuno vince più di un premio al giorno, né il premio che ha offerto.
 
 # Limite di vincite') WHERE regolamento NOT LIKE '%# Come si estrae%'`];
+// V24: giorni "lettera ritrovata": la lettera da leggere e sigillare (JSON: apertura, testo, firma)
+const V24 = [`ALTER TABLE days ADD COLUMN lettera TEXT`];
 // V23: testi degli annunci su Discord, decisi dallo staff (JSON; vuoto = testi predefiniti)
 const V23 = [`ALTER TABLE editions ADD COLUMN annunci_testi TEXT`];
 // V19: per il 2026 il capitolo bonus si apre il giorno dopo l'ultima busta (26 dicembre), decisione del 12/11
@@ -190,7 +192,7 @@ const V15 = [
   `UPDATE editions SET aiutanti_intro = REPLACE(aiutanti_intro, 'Vuoi aiutare il postino a riempire la sua sacca? Offri un premio per il calendario: un oggetto in gioco oppure dei GIL.', 'Starlight si avvicina e Tullio vuole che a dicembre, ogni giorno, qualcuno della community trovi un regalo nel calendario dell''Avvento. Da solo però non ce la fa: vuoi aiutarlo a riempire la sua dispensa dei doni? Offri un premio: un oggetto in gioco oppure dei GIL.')`,
   `UPDATE editions SET aiutanti_intro = REPLACE(aiutanti_intro, 'Aiutante del postino', 'Aiutante di Tullio')`,
 ];
-const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9, 10: V10, 11: V11, 12: V12, 13: V13, 14: V14, 15: V15, 16: V16, 17: V17, 18: V18, 19: V19, 20: V20, 21: V21, 22: V22, 23: V23 };
+const MIGRATIONS = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9, 10: V10, 11: V11, 12: V12, 13: V13, 14: V14, 15: V15, 16: V16, 17: V17, 18: V18, 19: V19, 20: V20, 21: V21, 22: V22, 23: V23, 24: V24 };
 
 const COME_FUNZIONA_2026 = `Ogni giorno alle 00:00 si apre una busta con un nuovo capitolo della storia.
 

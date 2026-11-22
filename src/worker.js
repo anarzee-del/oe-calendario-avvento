@@ -178,7 +178,7 @@ async function route(req, env, url, user, ed, ctx) {
 
     if (p === "/api/admin/giorni" && m === "GET") {
       const { results } = await env.DB.prepare(
-        "SELECT edition,n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,stato_capitolo,img_ver,video_ver,updated_at,updated_by FROM days WHERE edition=? ORDER BY n"
+        "SELECT edition,n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,stato_capitolo,img_ver,video_ver,updated_at,updated_by,lettera FROM days WHERE edition=? ORDER BY n"
       ).bind(ed.year).all();
       const days = editionDays(ed);
       const premi = await assegnazioniPerGiorno(env, ed.year);
@@ -188,7 +188,7 @@ async function route(req, env, url, user, ed, ctx) {
         bonus: { ...row0, n: 0, lettere: lettereOra, ...(statoBonus(ed, today(url, user, env)) || {}) },
         giorni: days.map((d) => {
           const row = results.find((x) => x.n === d.n) || { n: d.n };
-          return { ...row, data: d.data, wd: weekday(d.data), risposte: JSON.parse(row.risposte || "[]"), in_palio: inPalio(premi.get(d.n)) };
+          return { ...row, data: d.data, wd: weekday(d.data), risposte: JSON.parse(row.risposte || "[]"), lettera: leggiLettera(row.lettera), in_palio: inPalio(premi.get(d.n)) };
         }),
       });
     }
@@ -198,7 +198,10 @@ async function route(req, env, url, user, ed, ctx) {
       if (n < 0 || n > editionDays(ed).length) return err(404, "Giorno inesistente");
       const b = await readJson(req);
       if (!b) return err(400, "Dati non validi");
-      const tipo = n === 0 ? "bonus" : b.tipo === "sfida" ? "sfida" : "sorteggio";
+      const tipo = n === 0 ? "bonus" : ["sfida", "lettera"].includes(b.tipo) ? b.tipo : "sorteggio";
+      const lettera = { apertura: str(b.lettera?.apertura, 120), testo: str(b.lettera?.testo, 8000), firma: str(b.lettera?.firma, 120) };
+      if (tipo === "lettera" && b.stato_capitolo === "pronto" && !lettera.testo)
+        return err(400, "Per un giorno con la lettera ritrovata serve il testo della lettera");
       const risposte = Array.isArray(b.risposte) ? b.risposte.slice(0, 6).map((x) => str(x, 200)) : [];
       const giusta = Number.isInteger(b.giusta) && b.giusta >= 0 && b.giusta < risposte.length ? b.giusta : null;
       if (tipo === "sfida" && b.stato_capitolo === "pronto") {
@@ -206,18 +209,19 @@ async function route(req, env, url, user, ed, ctx) {
           return err(400, "Per un giorno di sfida servono la domanda, almeno due risposte e quella giusta");
       }
       await env.DB.prepare(
-        `INSERT INTO days(edition,n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,stato_capitolo,updated_at,updated_by)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `INSERT INTO days(edition,n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,stato_capitolo,updated_at,updated_by,lettera)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
          ON CONFLICT(edition,n) DO UPDATE SET tipo=excluded.tipo, etichetta=excluded.etichetta, titolo=excluded.titolo,
            testo=excluded.testo, fuoco=excluded.fuoco, domanda=excluded.domanda, risposte=excluded.risposte,
-           giusta=excluded.giusta, stato_capitolo=excluded.stato_capitolo,
+           giusta=excluded.giusta, stato_capitolo=excluded.stato_capitolo, lettera=excluded.lettera,
            updated_at=excluded.updated_at, updated_by=excluded.updated_by`
       ).bind(
         ed.year, n, tipo, str(b.etichetta, 24), str(b.titolo, 120), str(b.testo, 20000),
         FUOCHI.has(b.fuoco) ? b.fuoco : "centro",
         str(b.domanda, 300), JSON.stringify(risposte), giusta,
         ["manca", "bozza", "pronto"].includes(b.stato_capitolo) ? b.stato_capitolo : "bozza",
-        Date.now(), user.global_name || user.username
+        Date.now(), user.global_name || user.username,
+        lettera.apertura || lettera.testo || lettera.firma ? JSON.stringify(lettera) : null
       ).run();
       return json({ ok: true });
     }
@@ -377,6 +381,8 @@ async function stato(env, url, user, ed, ctx) {
   });
 }
 
+const leggiLettera = (j) => { try { const x = JSON.parse(j || "null"); return x ? { apertura: x.apertura || "", testo: x.testo || "", firma: x.firma || "" } : { apertura: "", testo: "", firma: "" }; } catch { return { apertura: "", testo: "", firma: "" }; } };
+
 async function giorno(env, url, user, ed, n) {
   if (n === 0) return giornoBonus(env, url, user, ed);
   const days = editionDays(ed);
@@ -387,7 +393,7 @@ async function giorno(env, url, user, ed, n) {
   const st = dayState(d.data, oggi);
   if ((st === "sigillata" || oggi < ed.inizio) && !isAdmin) return err(403, "Questa busta è ancora sigillata");
   const row = await env.DB.prepare(
-    "SELECT n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,img_ver FROM days WHERE edition=? AND n=?"
+    "SELECT n,tipo,etichetta,titolo,testo,fuoco,domanda,risposte,giusta,img_ver,lettera FROM days WHERE edition=? AND n=?"
   ).bind(ed.year, n).first() || { n };
   const out = {
     n, data: d.data, wd: weekday(d.data), stato: st,
@@ -405,6 +411,7 @@ async function giorno(env, url, user, ed, n) {
   out.estratta = estratti.has(n);
   if (out.estratta) out.premi = await premiEstratti(env, ed.year, n);
   if (user) out.mia = mia ? { partecipato: true, risposta: mia.risposta } : { partecipato: false };
+  if (out.tipo === "lettera") out.lettera = leggiLettera(row.lettera);
   if (out.tipo === "sfida") {
     out.domanda = row.domanda || "";
     out.risposte = JSON.parse(row.risposte || "[]");
