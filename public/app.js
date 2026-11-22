@@ -303,7 +303,7 @@ function animaSigillo(ini) {
       <div class="sc-tasca"></div><div class="sc-lembo"></div>
       <div class="sc-cera">${SIGILLO(ini)}</div></div></div>`);
   $(".sc").scrollIntoView({ behavior: "smooth", block: "center" });
-  return new Promise((ok) => setTimeout(ok, 3300));
+  return new Promise((ok) => setTimeout(ok, 5300)); // ~3 s di animazione + 2 s per guardare il sigillo
 }
 function annullaAnimazione() { $(".sc")?.remove(); const c = $("#lettera"); if (c) c.hidden = false; }
 const inizialiStaff = () => inizialiPg(S.dati.utente?.pg || S.dati.utente?.nome) || "OE";
