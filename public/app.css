@@ -345,3 +345,20 @@ video.video-bonus{width:100%;max-width:100%;height:auto;aspect-ratio:16/9;backgr
 .scelta-ft .opz{display:flex;gap:10px;align-items:center;min-height:44px;font-weight:400;font-size:16px;letter-spacing:0;cursor:pointer}
 .scelta-ft .opz input{width:20px;height:20px;accent-color:var(--primary);flex:0 0 auto}
 .nota-ft{margin:12px 0 0;padding:10px 12px;border-radius:8px;background:var(--ice);color:var(--ink);font-size:15px;line-height:1.45;text-align:left}
+/* registro attività */
+.reg-filtri{align-items:flex-end;gap:10px 12px;margin-bottom:14px}
+.reg-filtri .campo{margin:0;flex:1 1 200px}
+.reg-filtri .campo:nth-child(2){flex:0 1 180px}
+.reg-lista{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.reg-riga{display:grid;grid-template-columns:128px minmax(0,1fr);gap:2px 12px;padding:10px 14px;border-top:1px solid var(--line);font-size:15px;line-height:1.4;text-align:left}
+.reg-riga:first-child{border-top:0}
+.reg-riga time{grid-row:span 2;color:var(--muted);font-variant-numeric:tabular-nums;font-size:14px}
+.reg-riga.ko{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.reg-chi b{font-weight:600}
+.reg-ruolo{font-size:12px;padding:1px 7px;border-radius:999px;background:var(--ice);color:var(--ink);white-space:nowrap}
+.reg-ruolo.r-staff{background:var(--primary);color:var(--on-primary)}
+.reg-ruolo.r-sistema{background:transparent;border:1px solid var(--line)}
+.reg-azione{overflow-wrap:anywhere}
+.reg-vuoto{padding:18px;color:var(--muted)}
+#reg-altre{margin-top:12px;text-align:center}
+@media (max-width:560px){.reg-riga{grid-template-columns:1fr}.reg-riga time{grid-row:auto}}

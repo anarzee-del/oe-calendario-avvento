@@ -1,4 +1,5 @@
 // Login con Discord (OAuth2: identify + guilds) e sessioni salvate nel database.
+import { scrivi } from "./registro.js";
 
 const SESSION_DAYS = 30;
 const COOKIE = "oe_sess";
@@ -121,9 +122,14 @@ export async function handleAuth(req, env, url) {
     if (!meRes.ok || !guildsRes.ok) return fail("discord");
     const me = await meRes.json();
     const guilds = await guildsRes.json();
-    if (!Array.isArray(guilds) || !guilds.some((g) => g.id === env.DISCORD_GUILD_ID)) return fail("server");
+    if (!Array.isArray(guilds) || !guilds.some((g) => g.id === env.DISCORD_GUILD_ID)) {
+      await scrivi(env, { user: { id: me.id, username: me.username, global_name: me.global_name }, ruolo: "giocatore", azione: "Accesso rifiutato: non fa parte del server Discord" }).catch(() => {});
+      return fail("server");
+    }
 
     await upsertUser(env, me);
+    const reg = await env.DB.prepare("SELECT id, pg, username, global_name, tester FROM users WHERE id=?").bind(me.id).first().catch(() => null);
+    await scrivi(env, { user: { ...(reg || me), role: adminIds(env).has(me.id) ? "admin" : "player" }, azione: "Ha fatto l'accesso con Discord" }).catch(() => {});
     const sess = await startSession(env, me, local);
     // al primo accesso (personaggio non ancora indicato) si va dritti alla scheda del profilo
     const prof = await env.DB.prepare("SELECT pg FROM users WHERE id=?").bind(me.id).first();

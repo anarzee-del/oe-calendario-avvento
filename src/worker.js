@@ -9,6 +9,7 @@ import { handleAnnunci, giroAnnunci } from "./annunci.js";
 import { statoBonus, segnaTraguardo } from "./bonus.js";
 import { handleProva } from "./prova.js";
 import { handleVideo } from "./video.js";
+import { preparaRegistro, registra, registraApertura, handleRegistro, puliziaRegistro, scrivi } from "./registro.js";
 
 const JSONH = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: JSONH });
@@ -31,6 +32,9 @@ export default {
     // poi gli annunci su Discord (vincitori, busta del giorno, traguardi), se lo staff li ha accesi
     const ann = await giroAnnunci(env, ed).catch((e) => { console.error(e); return []; });
     if (ann.length) console.log("Annunci inviati", ann.join(", "));
+    for (const x of res) await scrivi(env, { chi: "Sito", ruolo: "sistema", azione: `Estrazione automatica del ${x.n === 0 ? "capitolo bonus" : "giorno " + x.n}` }).catch(() => {});
+    if (ann.length) await scrivi(env, { chi: "Sito", ruolo: "sistema", azione: `Annunci inviati su Discord: ${ann.join(", ")}` }).catch(() => {});
+    await puliziaRegistro(env).catch(() => {});
   },
 
   async fetch(req, env, ctx) {
@@ -57,7 +61,10 @@ export default {
       if (user && Date.now() - (user.last_seen || 0) > 120000) {
         ctx.waitUntil(env.DB.prepare("UPDATE users SET last_seen=? WHERE id=?").bind(Date.now(), user.id).run().catch(() => {}));
       }
-      return await route(req, env, url, user, ed, ctx);
+      const prep = await preparaRegistro(req, url);
+      const res = await route(req, env, url, user, ed, ctx);
+      if (prep) ctx.waitUntil(registra(env, prep, user, res).catch((e) => console.error("registro", e)));
+      return res;
     } catch (e) {
       console.error(e);
       return err(500, "Errore interno, riprova tra poco");
@@ -146,6 +153,8 @@ async function route(req, env, url, user, ed, ctx) {
 
   const vd = await handleVideo(req, env, url, user, ed);
   if (vd) return vd;
+  const rg = await handleRegistro(req, env, url, user);
+  if (rg) return rg;
   const pv = await handleProva(req, env, url, user, ed, oggiReale(url, env));
   if (pv) return pv;
   const an = await handleAnnunci(req, env, url, user, ed, oggiReale(url, env));
@@ -158,7 +167,11 @@ async function route(req, env, url, user, ed, ctx) {
   if (xr) return xr;
 
   let r;
-  if ((r = p.match(/^\/api\/giorno\/(\d{1,2})$/)) && m === "GET") return giorno(env, url, user, ed, Number(r[1]));
+  if ((r = p.match(/^\/api\/giorno\/(\d{1,2})$/)) && m === "GET") {
+    const res = await giorno(env, url, user, ed, Number(r[1]));
+    if (user && res.status === 200) ctx?.waitUntil(registraApertura(env, user, Number(r[1])).catch(() => {}));
+    return res;
+  }
   if ((r = p.match(/^\/api\/img\/(\d{1,2})\/(full|thumb)$/)) && m === "GET") return immagine(env, url, user, ed, Number(r[1]), r[2]);
 
   if (p === "/api/profilo" && m === "PUT") {

@@ -542,7 +542,7 @@ function vProfilo() {
 /* ---------- area staff ---------- */
 async function vStaff() {
   if (!admin()) return `<div class="pannello sigillata-box"><h2>Area riservata allo staff</h2></div>`;
-  const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["estrazioni", "Estrazioni"], ["consegne", "Consegne"], ["biscotti", "Biscotti per Mee6"], ["messaggi", "Messaggi per Tullio"], ["partecipanti", "Partecipanti"], ["annunci", "Annunci su Discord"], ["testi", "Testi, date e regole"], ["edizioni", "Edizioni e backup"]];
+  const nav = [["giorni", "Giorni e capitoli"], ["premi", "Premi e aiutanti"], ["estrazioni", "Estrazioni"], ["consegne", "Consegne"], ["biscotti", "Biscotti per Mee6"], ["messaggi", "Messaggi per Tullio"], ["partecipanti", "Partecipanti"], ["annunci", "Annunci su Discord"], ["testi", "Testi, date e regole"], ["registro", "Registro attività"], ["edizioni", "Edizioni e backup"]];
   const se = S.dati.staff_ed, suVera = se && se.vista !== se.prova;
   const vista = se ? `<div class="staff-vista ${suVera ? "vera" : ""}"><span>${suVera ? "Stai lavorando sul <b>calendario vero</b> di dicembre." : "Stai guardando la <b>prova generale</b>. Per scrivere capitoli e caricare immagini di dicembre passa al calendario vero."}</span>
     <button class="btn piccolo ${suVera ? "" : "sec"}" data-act="vista-ed" data-v="${suVera ? "" : se.vera}">${suVera ? "Torna alla prova" : "Vai al calendario vero"}</button></div>` : "";
@@ -556,6 +556,7 @@ async function riempiStaff() {
   if (!corpo) return;
   if (S.staffSez === "testi") { corpo.innerHTML = formTesti(); api("/api/invito").then((r) => { const i = $("#t-invito"); if (i && !i.value) i.value = r.link || ""; }).catch(() => {}); return; }
   if (S.staffSez === "premi") return riempiPremi();
+  if (S.staffSez === "registro") return riempiRegistro();
   if (S.staffSez === "estrazioni") return riempiEstrazioni();
   if (S.staffSez === "biscotti") return riempiBiscotti();
   if (S.staffSez === "consegne") return riempiConsegne();
@@ -835,7 +836,7 @@ window.addEventListener("hashchange", async () => {
 /* ---------- eventi ---------- */
 document.addEventListener("click", async (e) => {
   const sez = e.target.closest("[data-sez]");
-  if (sez) { S.staffSez = sez.dataset.sez; S.staffGiorno = null; render(); return; }
+  if (sez) { S.staffSez = sez.dataset.sez; S.staffGiorno = null; if (sez.dataset.cerca != null) S.regFiltro = { chi: "", q: sez.dataset.cerca }; render(); return; }
   const sd = e.target.closest("[data-staffday]");
   if (sd) { S.staffGiorno = Number(sd.dataset.staffday); riempiStaff(); window.scrollTo({ top: $("#vista").offsetTop - 10 }); return; }
   const a = e.target.closest("[data-act]");
@@ -1838,7 +1839,7 @@ function disegnaPartecipanti() {
   <div class="doni">${lista.map((x) => `<div class="dono${x.escluso ? " escluso" : ""}">
     <div class="dono-t"><b style="font-size:20px">${esc(x.nome)} <span class="aiuto">@${esc(x.username)}</span></b><span class="fila">${x.staff ? pill("", "Staff") : ""}${x.escluso ? pill("err", "Escluso") : ""}${x.tester ? pill("acc", "Account di prova") : ""}${x.free_trial ? pill("warn", "Free trial") : ""}${!x.staff && !x.pg ? pill("warn", "Profilo incompleto") : ""}</span></div>
     <p class="aiuto">${x.pg ? `${esc(x.pg)} · ${esc(x.mondo || "")} (${esc(x.dc || "")})` : "Personaggio non indicato"} · ${x.partecipazioni} ${x.partecipazioni === 1 ? "partecipazione" : "partecipazioni"} · ${x.vincite} ${x.vincite === 1 ? "premio" : "premi"}${x.doni ? ` · aiutante (${x.doni})` : ""}${x.last_login ? ` · ultimo accesso ${dataOra(x.last_login)}` : ""}</p>
-    ${x.staff ? "" : `<div class="fila"><button class="btn quieto piccolo ${x.escluso ? "" : "pericolo-testo"}" data-act="escludi" data-id="${x.id}" data-v="${x.escluso ? 0 : 1}">${x.escluso ? "Riammetti" : "Escludi"}</button><button class="btn quieto piccolo" data-act="tester" data-id="${x.id}" data-v="${x.tester ? 0 : 1}">${x.tester ? "Torna giocatore normale" : "Rendi account di prova"}</button><button class="btn quieto piccolo" data-act="free-trial" data-id="${x.id}" data-v="${x.free_trial ? 0 : 1}">${x.free_trial ? "Togli free trial" : "Segna free trial"}</button></div>`}
+    ${x.staff ? "" : `<div class="fila"><button class="btn quieto piccolo ${x.escluso ? "" : "pericolo-testo"}" data-act="escludi" data-id="${x.id}" data-v="${x.escluso ? 0 : 1}">${x.escluso ? "Riammetti" : "Escludi"}</button><button class="btn quieto piccolo" data-act="tester" data-id="${x.id}" data-v="${x.tester ? 0 : 1}">${x.tester ? "Torna giocatore normale" : "Rendi account di prova"}</button><button class="btn quieto piccolo" data-sez="registro" data-cerca="${esc(x.username || x.nome)}">Attività</button><button class="btn quieto piccolo" data-act="free-trial" data-id="${x.id}" data-v="${x.free_trial ? 0 : 1}">${x.free_trial ? "Togli free trial" : "Segna free trial"}</button></div>`}
   </div>`).join("") || `<p class="prossimamente">Nessuno trovato.</p>`}</div>`;
 }
 
@@ -1982,3 +1983,38 @@ async function mostraInvito() {
   S.invito = link;
   if (S.dati) renderTesta();
 }
+
+// ---------- Registro attività (area staff) ----------
+const quando = (ms) => new Date(ms).toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const RUOLI_REG = { staff: "Staff", giocatore: "Giocatore", prova: "Account di prova", sistema: "Sito" };
+async function riempiRegistro(altre = false) {
+  const corpo = $("#staff-corpo"); if (!corpo) return;
+  const f = (S.regFiltro ||= { chi: "", q: "" });
+  if (!altre) {
+    corpo.innerHTML = `<h2>Registro attività</h2>
+      <p class="sub">Chi ha fatto cosa sul sito: accessi, buste aperte, partecipazioni, tentativi non riusciti (con il motivo), profilo, offerte e tutte le modifiche dello staff. Le semplici visite non vengono registrate. Si conserva per 90 giorni.</p>
+      <form id="form-registro" class="fila reg-filtri" role="search">
+        <div class="campo"><label for="reg-q">Cerca un nome o un'azione</label><input type="text" enterkeyhint="search" id="reg-q" value="${esc(f.q)}" placeholder="Es. Arbaal, giorno 3, non riuscito"></div>
+        <div class="campo"><label for="reg-chi">Chi</label><select id="reg-chi">${[["", "Tutti"], ["giocatori", "Giocatori"], ["staff", "Staff"], ["sistema", "Sito (automatico)"]].map(([v, t]) => `<option value="${v}" ${f.chi === v ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+        <button class="btn" type="submit">Cerca</button>
+      </form>
+      <ol class="reg-lista" id="reg-lista"></ol><div id="reg-altre"></div>`;
+    S.regUltimo = 0;
+  }
+  const qs = new URLSearchParams({ ...(f.q ? { q: f.q } : {}), ...(f.chi ? { chi: f.chi } : {}), ...(S.regUltimo ? { prima: S.regUltimo } : {}) });
+  let d;
+  try { d = await api(`/api/admin/registro?${qs}`); } catch (e) { $("#reg-lista").innerHTML = `<li class="avviso">${esc(e.message)}</li>`; return; }
+  const lista = $("#reg-lista");
+  if (!d.righe.length && !altre) lista.innerHTML = `<li class="reg-vuoto">Nessuna attività${f.q ? ` per «${esc(f.q)}»` : ""}.</li>`;
+  lista.insertAdjacentHTML("beforeend", d.righe.map((x) => `<li class="reg-riga${/^Tentativo non riuscito|^Accesso rifiutato/.test(x.azione) ? " ko" : ""}">
+    <time>${quando(x.ts)}</time><span class="reg-chi"><b>${esc(x.chi)}</b> <span class="reg-ruolo r-${esc(x.ruolo)}">${RUOLI_REG[x.ruolo] || esc(x.ruolo)}</span></span><span class="reg-azione">${esc(x.azione)}</span></li>`).join(""));
+  if (d.righe.length) S.regUltimo = d.righe[d.righe.length - 1].id;
+  $("#reg-altre").innerHTML = d.altre ? `<button class="btn sec" data-act="reg-altre">Carica altre</button>` : "";
+}
+document.addEventListener("submit", (e) => {
+  if (e.target.id !== "form-registro") return;
+  e.preventDefault();
+  S.regFiltro = { q: $("#reg-q").value.trim(), chi: $("#reg-chi").value };
+  riempiRegistro();
+});
+document.addEventListener("click", (e) => { if (e.target.closest('[data-act="reg-altre"]')) riempiRegistro(true); });
