@@ -67,7 +67,10 @@ const dataBreve = (iso) => primo(new Date(iso + "T12:00:00Z").toLocaleDateString
 const giorniTra = (a, b) => Math.round((new Date(b + "T12:00:00Z") - new Date(a + "T12:00:00Z")) / 86400000);
 const paragrafi = (t) => String(t || "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 // dentro un paragrafo, un semplice "a capo" resta un a capo (utile per lettere, dialoghi, poesie)
-const escBr = (t) => esc(t).replace(/\s*\n\s*/g, "<br>");
+// Gli indirizzi scritti nei testi (https://…, www.…, discord.gg/…) diventano link cliccabili
+const escLink = (t) => esc(t).replace(/\b((?:https?:\/\/|www\.|discord\.gg\/)[^\s<]+?)(?=[.,;:!?)\]]*(?:\s|$|<))/gi, (m) =>
+  `<a href="${/^https?:/i.test(m) ? m : "https://" + m}" target="_blank" rel="noopener">${m}</a>`);
+const escBr = (t) => escLink(t).replace(/\s*\n\s*/g, "<br>");
 const admin = () => S.dati?.utente?.ruolo === "admin";
 const connesso = () => !!S.dati?.utente;
 
@@ -501,8 +504,8 @@ function vRegolamento() {
   const ed = S.dati.edizione;
   const blocchi = paragrafi(ed.regolamento).map((p) => {
     const righe = p.split("\n");
-    if (righe[0].startsWith("# ")) return `<section><h3>${esc(righe[0].slice(2))}</h3>${righe.slice(1).join(" ").trim() ? `<p>${esc(righe.slice(1).join(" "))}</p>` : ""}</section>`;
-    return `<section><p>${esc(p)}</p></section>`;
+    if (righe[0].startsWith("# ")) return `<section><h3>${esc(righe[0].slice(2))}</h3>${righe.slice(1).join(" ").trim() ? `<p>${escLink(righe.slice(1).join(" "))}</p>` : ""}</section>`;
+    return `<section><p>${escLink(p)}</p></section>`;
   });
   return `<div class="pagina-h"><span class="label">${nomeEd(ed)}</span><h2>Regolamento</h2></div><div class="regole">${blocchi.join("")}</div>`;
 }
