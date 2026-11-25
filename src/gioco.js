@@ -42,7 +42,7 @@ export async function estrai(env, ed, n, da = "automatica") {
   const day = await env.DB.prepare("SELECT tipo, giusta FROM days WHERE edition=? AND n=?").bind(ed.year, n).first() || {};
   const { results: part } = await env.DB.prepare(
     `SELECT p.user_id, p.risposta FROM partecipazioni p JOIN users u ON u.id = p.user_id
-     WHERE p.edition=? AND p.giorno=? AND u.escluso=0 AND u.tester=0`
+     WHERE p.edition=? AND p.giorno=? AND u.escluso=0 AND u.tester=0 AND COALESCE(u.free_trial,0)=0`
   ).bind(ed.year, n).all();
   const { results: vinte } = await env.DB.prepare("SELECT user_id, COUNT(*) AS c FROM vincite WHERE edition=? GROUP BY user_id").bind(ed.year).all();
   const totali = new Map(vinte.map((v) => [v.user_id, v.c]));
@@ -296,7 +296,7 @@ export async function handleGioco(req, env, url, user, ed, oggi, oggiRealeData) 
     const dono = await env.DB.prepare("SELECT user_id FROM donazioni WHERE id=?").bind(v.donazione_id).first() || {};
     const { results: part } = await env.DB.prepare(
       `SELECT p.user_id, p.risposta FROM partecipazioni p JOIN users u ON u.id = p.user_id
-       WHERE p.edition=? AND p.giorno=? AND u.escluso=0 AND u.tester=0`
+       WHERE p.edition=? AND p.giorno=? AND u.escluso=0 AND u.tester=0 AND COALESCE(u.free_trial,0)=0`
     ).bind(ed.year, v.giorno).all();
     const { results: vinte } = await env.DB.prepare("SELECT user_id, COUNT(*) AS c FROM vincite WHERE edition=? AND id<>? GROUP BY user_id").bind(ed.year, v.id).all();
     const totali = new Map(vinte.map((x) => [x.user_id, x.c]));

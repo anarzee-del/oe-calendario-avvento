@@ -55,7 +55,9 @@ let toastT;
 // L'avviso resta più a lungo se il testo è lungo (circa il tempo per leggerlo); toccandolo si chiude
 function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (el.hidden = true), Math.min(10000, Math.max(4500, String(t).length * 80))); }
 document.addEventListener("click", (e) => { if (e.target.closest("#toast")) { $("#toast").hidden = true; clearTimeout(toastT); } });
-const msgPartecipa = (base, r) => S.dati.utente?.tester
+const msgPartecipa = (base, r) => S.dati.utente?.free_trial
+  ? `${base.replace(/sei in gara!?/i, "fatto!").replace("Sei in gara!", "Fatto!")} Hai ritrovato una lettera: la community ne ha trovate ${r.lettere}. Ricevi i Biscotti di Tullio.`
+  : S.dati.utente?.tester
   ? `${base} Con l'account di prova la tua lettera non conta per la community.`
   : `${base} Hai ritrovato una lettera: la community ne ha trovate ${r.lettere}.`;
 // il primo del mese si scrive con l'ordinale: "1° dicembre"
@@ -113,6 +115,11 @@ function renderTesta() {
   if (u?.tester) {
     pm.hidden = false;
     pm.innerHTML = `<div class="promemoria prova"><span class="pm-icona" aria-hidden="true">i</span><p><b>Account di prova.</b> Puoi partecipare a tutte le buste per controllare che il sito funzioni, ma non vinci premi, non ricevi Biscotti, non conti nelle lettere della community e i tuoi messaggi a Tullio non vanno sull'albero.</p></div>`;
+  } else if (u && u.pg && u.free_trial === null && u.ruolo !== "admin") {
+    pm.hidden = false;
+    pm.innerHTML = `<div class="promemoria"><span class="pm-icona" aria-hidden="true">?</span>
+      <p><b>Una domanda veloce: giochi con la free trial?</b> Con la free trial non si possono ricevere oggetti in gioco, quindi partecipi per i Biscotti di Tullio e le lettere della community, ma non all'estrazione dei premi.</p>
+      <div class="fila"><button class="btn" data-act="rispondi-ft" data-v="0">No, account completo</button><button class="btn sec" data-act="rispondi-ft" data-v="1">Sì, free trial</button></div></div>`;
   } else {
   pm.hidden = !manca || S.vista === "profilo";
   pm.innerHTML = manca ? `<div class="promemoria"><span class="pm-icona" aria-hidden="true">!</span>
@@ -459,15 +466,16 @@ function pannelloGioco(g) {
   h += `<div class="in-palio"><span class="label">In palio ${g.stato === "oggi" ? "oggi" : ""}</span><b>${tot ? `${tot} ${tot === 1 ? "premio" : "premi"}` : "Premi in arrivo"}</b>${chipsPalio(g.in_palio)}
     ${g.offerto_da ? `<span class="offerto-palio">${SEGNO()}Offerti da ${esc(g.offerto_da)}</span>` : ""}
     <span class="aiuto">Il premio esatto si scopre dopo l'estrazione.</span></div>`;
+  if (u?.free_trial && u.ruolo !== "admin" && !u.tester) h += `<p class="nota-ft">Giochi con la <b>free trial</b>: partecipi per i Biscotti e le lettere della community, non all'estrazione dei premi.</p>`;
   if (g.stato === "passata") return h + `<p class="prossimamente">Estrazione in corso: ricarica la pagina tra qualche minuto.</p></div>`;
   if (g.stato === "sigillata") return h + (g.tipo === "sfida" ? domandaSfida(g, false) : "") + `<p class="prossimamente">Anteprima: il ${dataLunga(g.data)} qui i giocatori troveranno il pulsante per partecipare.</p></div>`;
   if (!u) return h + `<a class="btn-discord" href="/api/auth/login">Accedi con Discord per partecipare</a>${NOTA_LOGIN}${chiude}</div>`;
   if (u.ruolo === "admin") return h + (g.tipo === "sfida" ? domandaSfida(g, false) : "") + `<p class="prossimamente">Lo staff non partecipa alle estrazioni. ${g.tipo === "lettera" ? "I giocatori, in fondo alla lettera, trovano il sigillo di ceralacca per chiuderla e partecipare." : `I giocatori qui vedono il pulsante "Partecipa"${g.tipo === "sfida" ? " e la domanda" : ""}.`}</p>${chiude}</div>`;
   if (!u.pg) return h + `<p>Prima di partecipare indica il personaggio a cui consegnare i premi.</p><a class="btn" href="#profilo">Completa il profilo</a>${chiude}</div>`;
   if (g.mia?.partecipato) {
-    return h + `<span class="stato ok">${ICO.spunta} Sei in gara</span>
+    return h + `<span class="stato ok">${ICO.spunta} ${u.free_trial ? "Hai partecipato" : "Sei in gara"}</span>
       <p>${g.tipo === "sfida" ? `Hai risposto <b>${esc(g.risposte[g.mia.risposta])}</b>. Scoprirai se è giusta a mezzanotte, insieme all'estrazione.` : g.tipo === "lettera" ? "Hai sigillato la lettera: la tua partecipazione è registrata." : "La tua partecipazione è registrata."}</p>
-      <p class="aiuto">${u.tester ? "Con l'account di prova la tua lettera non conta per la community, non vinci e non ricevi Biscotti." : `Hai ritrovato una lettera per la community. Se non vinci ricevi comunque ${S.dati.edizione.biscotti_partecipazione} Biscotti di Tullio.`}</p>${chiude}</div>`;
+      <p class="aiuto">${u.tester ? "Con l'account di prova la tua lettera non conta per la community, non vinci e non ricevi Biscotti." : u.free_trial ? `Hai ritrovato una lettera per la community e ricevi ${S.dati.edizione.biscotti_partecipazione} Biscotti di Tullio.` : `Hai ritrovato una lettera per la community. Se non vinci ricevi comunque ${S.dati.edizione.biscotti_partecipazione} Biscotti di Tullio.`}</p>${chiude}</div>`;
   }
   if (g.tipo === "sfida") {
     return h + `<form id="form-sfida" data-n="${g.n}">${domandaSfida(g, true)}
@@ -511,6 +519,10 @@ function vProfilo() {
       <div class="campo"><label for="pg">Nome del personaggio</label><input type="text" id="pg" maxlength="31" value="${esc(u.pg)}" placeholder="Nome Cognome" autocomplete="off" required pattern="\\s*[A-Za-z'\\-]{2,15}\\s+[A-Za-z'\\-]{2,15}\\s*" title="Nome e cognome del personaggio come in gioco, per esempio Altea Skysinger"><span class="aiuto">Nome e cognome come in gioco, per esempio Altea Skysinger.</span></div>
       <div class="due"><div class="campo"><label for="dc">Data center</label><select id="dc">${Object.keys(MONDI).map((x) => `<option ${x === dc ? "selected" : ""}>${x}</option>`).join("")}</select></div>
       <div class="campo"><label for="mondo">Mondo</label><select id="mondo">${MONDI[dc].map((m) => `<option ${m === u.mondo ? "selected" : ""}>${m}</option>`).join("")}</select></div></div>
+      <fieldset class="campo scelta-ft"><legend>Come giochi a FFXIV?</legend>
+        <label class="opz"><input type="radio" name="ft" value="0" ${u.free_trial === false ? "checked" : ""} required> Con l'account completo</label>
+        <label class="opz"><input type="radio" name="ft" value="1" ${u.free_trial === true ? "checked" : ""}> Con la free trial (versione di prova gratuita)</label>
+        <span class="aiuto">Con la free trial non si possono ricevere oggetti in gioco: partecipi a tutte le buste, ricevi i Biscotti di Tullio e conti per le lettere della community, ma non partecipi all'estrazione dei premi. Se poi passi all'account completo, torna qui e cambia la risposta.</span></fieldset>
       <button class="btn" type="submit">Salva</button>
     </form></section>
   <section id="mio-dicembre" style="margin-top:24px"></section>
@@ -868,7 +880,8 @@ document.addEventListener("submit", async (e) => {
   e.preventDefault();
   const f = e.target;
   if (f.id === "form-profilo") {
-    try { await putJson("/api/profilo", { pg: $("#pg").value, dc: $("#dc").value, mondo: $("#mondo").value }); const primaVolta = !S.dati.utente?.pg; toast(primaVolta ? "Fatto! Ora puoi partecipare al calendario" : "Profilo salvato"); await carica(); if (primaVolta) location.hash = "calendario"; }
+    try { const ft = f.querySelector("input[name=ft]:checked");
+      await putJson("/api/profilo", { pg: $("#pg").value, dc: $("#dc").value, mondo: $("#mondo").value, ...(ft ? { free_trial: ft.value === "1" } : {}) }); const primaVolta = !S.dati.utente?.pg; toast(primaVolta ? "Fatto! Ora puoi partecipare al calendario" : "Profilo salvato"); await carica(); if (primaVolta) location.hash = "calendario"; }
     catch (err) { toast(err.message); }
   }
   if (f.id === "form-giorno") {
@@ -1806,12 +1819,13 @@ function disegnaPartecipanti() {
     <div class="stat"><b>${tutti.filter((x) => !x.staff && !x.tester).length}</b><span>Iscritti</span></div>
     <div class="stat"><b>${senzaProfilo}</b><span>Senza personaggio indicato</span></div>
     <div class="stat"><b>${tutti.filter((x) => x.escluso).length}</b><span>Esclusi</span></div>
+    <div class="stat"><b>${tutti.filter((x) => x.free_trial && !x.staff).length}</b><span>Free trial (niente premi)</span></div>
   </div>
   <div class="campo" style="max-width:360px"><label for="cerca-part">Cerca per nome o personaggio</label><input type="text" id="cerca-part" value="${esc(S.cercaPart || "")}"></div>
   <div class="doni">${lista.map((x) => `<div class="dono${x.escluso ? " escluso" : ""}">
-    <div class="dono-t"><b style="font-size:20px">${esc(x.nome)} <span class="aiuto">@${esc(x.username)}</span></b><span class="fila">${x.staff ? pill("", "Staff") : ""}${x.escluso ? pill("err", "Escluso") : ""}${x.tester ? pill("acc", "Account di prova") : ""}${!x.staff && !x.pg ? pill("warn", "Profilo incompleto") : ""}</span></div>
+    <div class="dono-t"><b style="font-size:20px">${esc(x.nome)} <span class="aiuto">@${esc(x.username)}</span></b><span class="fila">${x.staff ? pill("", "Staff") : ""}${x.escluso ? pill("err", "Escluso") : ""}${x.tester ? pill("acc", "Account di prova") : ""}${x.free_trial ? pill("warn", "Free trial") : ""}${!x.staff && !x.pg ? pill("warn", "Profilo incompleto") : ""}</span></div>
     <p class="aiuto">${x.pg ? `${esc(x.pg)} · ${esc(x.mondo || "")} (${esc(x.dc || "")})` : "Personaggio non indicato"} · ${x.partecipazioni} ${x.partecipazioni === 1 ? "partecipazione" : "partecipazioni"} · ${x.vincite} ${x.vincite === 1 ? "premio" : "premi"}${x.doni ? ` · aiutante (${x.doni})` : ""}${x.last_login ? ` · ultimo accesso ${dataOra(x.last_login)}` : ""}</p>
-    ${x.staff ? "" : `<div class="fila"><button class="btn quieto piccolo ${x.escluso ? "" : "pericolo-testo"}" data-act="escludi" data-id="${x.id}" data-v="${x.escluso ? 0 : 1}">${x.escluso ? "Riammetti" : "Escludi"}</button><button class="btn quieto piccolo" data-act="tester" data-id="${x.id}" data-v="${x.tester ? 0 : 1}">${x.tester ? "Torna giocatore normale" : "Rendi account di prova"}</button></div>`}
+    ${x.staff ? "" : `<div class="fila"><button class="btn quieto piccolo ${x.escluso ? "" : "pericolo-testo"}" data-act="escludi" data-id="${x.id}" data-v="${x.escluso ? 0 : 1}">${x.escluso ? "Riammetti" : "Escludi"}</button><button class="btn quieto piccolo" data-act="tester" data-id="${x.id}" data-v="${x.tester ? 0 : 1}">${x.tester ? "Torna giocatore normale" : "Rendi account di prova"}</button><button class="btn quieto piccolo" data-act="free-trial" data-id="${x.id}" data-v="${x.free_trial ? 0 : 1}">${x.free_trial ? "Togli free trial" : "Segna free trial"}</button></div>`}
   </div>`).join("") || `<p class="prossimamente">Nessuno trovato.</p>`}</div>`;
 }
 
@@ -1877,6 +1891,9 @@ document.addEventListener("click", async (e) => {
       const t = S.messaggi.messaggi.filter((x) => x.stato === "ok").map((x) => `${x.nome}: ${x.testo}`).join("\n\n");
       try { await navigator.clipboard.writeText(t); toast("Messaggi copiati"); } catch { toast("Non riesco a copiare"); }
     }
+    if (act === "free-trial") {
+      await putJson(`/api/admin/extra/partecipante/${a.dataset.id}`, { free_trial: a.dataset.v === "1" }); toast(a.dataset.v === "1" ? "Segnato come free trial: niente estrazioni dei premi" : "Tolto dalla free trial: partecipa alle estrazioni"); riempiPartecipanti();
+    }
     if (act === "escludi") {
       if (a.dataset.v === "1" && a.dataset.conferma !== "1") { a.dataset.conferma = "1"; a.textContent = "Conferma esclusione"; a.classList.add("conferma"); return; }
       await putJson(`/api/admin/extra/partecipante/${a.dataset.id}`, { escluso: a.dataset.v === "1" }); toast(a.dataset.v === "1" ? "Escluso dall'evento" : "Riammesso"); riempiPartecipanti();
@@ -1932,4 +1949,15 @@ document.addEventListener("click", async (e) => {
   await carica();
   toast(a.dataset.v ? "Stai guardando il calendario vero (solo staff)" : "Di nuovo sulla prova generale");
   if (S.vista === "staff") riempiStaff();
+});
+
+// Risposta veloce alla domanda sulla free trial (per chi aveva già il profilo)
+document.addEventListener("click", async (e) => {
+  const a = e.target.closest('[data-act="rispondi-ft"]'); if (!a) return;
+  a.disabled = true;
+  try {
+    await putJson("/api/profilo/free-trial", { free_trial: a.dataset.v === "1" });
+    toast(a.dataset.v === "1" ? "Grazie! Partecipi per i Biscotti e le lettere della community" : "Grazie! Partecipi anche alle estrazioni dei premi");
+    await carica();
+  } catch (err) { toast(err.message); a.disabled = false; }
 });

@@ -96,7 +96,7 @@ function publicUser(u) {
   return {
     id: u.id, nome: u.pg || u.global_name || u.username, discord: u.global_name || u.username, username: u.username, ruolo: u.role,
     avatar: u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=64` : null,
-    pg: u.pg || "", dc: u.dc || "", mondo: u.mondo || "", tester: !!u.tester,
+    pg: u.pg || "", dc: u.dc || "", mondo: u.mondo || "", tester: !!u.tester, free_trial: u.free_trial == null ? null : !!u.free_trial,
   };
 }
 
@@ -156,7 +156,17 @@ async function route(req, env, url, user, ed, ctx) {
     if (!pg) return err(400, "Scrivi il nome del personaggio");
     if (!/^[A-Za-z'-]{2,15} [A-Za-z'-]{2,15}$/.test(pg)) return err(400, "Scrivi nome e cognome del personaggio come in gioco, per esempio Altea Skysinger");
     if (!["Light", "Chaos"].includes(dc)) return err(400, "Scegli il data center");
-    await env.DB.prepare("UPDATE users SET pg=?, dc=?, mondo=? WHERE id=?").bind(pg, dc, mondo, user.id).run();
+    if (typeof b?.free_trial !== "boolean" && user.free_trial == null) return err(400, "Dicci se giochi con la free trial");
+    const ft = typeof b?.free_trial === "boolean" ? (b.free_trial ? 1 : 0) : user.free_trial;
+    await env.DB.prepare("UPDATE users SET pg=?, dc=?, mondo=?, free_trial=? WHERE id=?").bind(pg, dc, mondo, ft, user.id).run();
+    return json({ ok: true });
+  }
+  // risposta veloce per chi aveva già il profilo prima della domanda sulla free trial
+  if (p === "/api/profilo/free-trial" && m === "PUT") {
+    if (!user) return err(401, "Accedi con Discord");
+    const b = await readJson(req);
+    if (typeof b?.free_trial !== "boolean") return err(400, "Risposta non valida");
+    await env.DB.prepare("UPDATE users SET free_trial=? WHERE id=?").bind(b.free_trial ? 1 : 0, user.id).run();
     return json({ ok: true });
   }
 
