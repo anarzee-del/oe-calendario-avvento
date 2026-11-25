@@ -115,7 +115,13 @@ function renderTesta() {
     : d.edizione?.prova ? `<div class="banner-prova"><b>Prova generale</b><span>Questo è un calendario di prova (${dataBreve(d.edizione.inizio)} – ${dataBreve(d.edizione.fine)}): buste, premi, vincite e lettere sono finti e verranno cancellati alla fine. Il calendario vero si apre il 1° dicembre.</span>${se ? `<button class="btn piccolo sec" data-act="vista-ed" data-v="${se.vera}">Staff: vai al calendario vero</button>` : ""}</div>` : "";
   const pm = $("#promemoria");
   const manca = u && !u.pg && u.ruolo !== "admin";
-  if (u?.tester) {
+  if (!u && S.invito != null) {
+    pm.hidden = false;
+    const link = S.invito;
+    pm.innerHTML = `<div class="promemoria"><span class="pm-icona" aria-hidden="true">!</span>
+    <p><b>Per partecipare devi far parte del server Discord di Our Elysion.</b> ${link ? "Entra nel server con il pulsante qui sotto, poi torna qui e premi di nuovo «Entra con Discord»." : "Chiedi il link d'invito a chi ti ha parlato del calendario, poi torna qui e premi di nuovo «Entra con Discord»."}</p>
+    <div class="fila">${link ? `<a class="btn" href="${esc(link)}" target="_blank" rel="noopener">Entra nel server Discord</a>` : ""}<a class="btn sec" href="/api/auth/login">Entra con Discord</a></div></div>`;
+  } else if (u?.tester) {
     pm.hidden = false;
     pm.innerHTML = `<div class="promemoria prova"><span class="pm-icona" aria-hidden="true">i</span><p><b>Account di prova.</b> Puoi partecipare a tutte le buste per controllare che il sito funzioni, ma non vinci premi, non ricevi Biscotti, non conti nelle lettere della community e i tuoi messaggi a Tullio non vanno sull'albero.</p></div>`;
   } else if (u && u.pg && u.free_trial === null && u.ruolo !== "admin") {
@@ -548,7 +554,7 @@ async function vStaff() {
 async function riempiStaff() {
   const corpo = $("#staff-corpo");
   if (!corpo) return;
-  if (S.staffSez === "testi") { corpo.innerHTML = formTesti(); return; }
+  if (S.staffSez === "testi") { corpo.innerHTML = formTesti(); api("/api/invito").then((r) => { const i = $("#t-invito"); if (i && !i.value) i.value = r.link || ""; }).catch(() => {}); return; }
   if (S.staffSez === "premi") return riempiPremi();
   if (S.staffSez === "estrazioni") return riempiEstrazioni();
   if (S.staffSez === "biscotti") return riempiBiscotti();
@@ -736,6 +742,8 @@ function formTesti() {
       <div class="campo"><label for="t-pes">Esempio dentro la casella</label><input type="text" id="t-pes" maxlength="120" value="${esc(ed.posta_testi?.esempio || "")}" placeholder="${esc(POSTA_PREDEFINITI.esempio)}"></div></div>
     <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Come funziona</h3>
       <div class="campo"><label for="t-come">Passaggi</label><textarea id="t-come" style="min-height:200px">${esc(ed.come_funziona)}</textarea><span class="aiuto">Un passaggio per paragrafo, separati da una riga vuota.</span></div></div>
+    <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Invito al server Discord</h3>
+      <div class="campo"><label for="t-invito">Link d'invito</label><input type="url" id="t-invito" placeholder="https://discord.gg/…" inputmode="url"><span class="aiuto">Chi prova a entrare nel calendario senza far parte del server vede questo link per unirsi. Usa un invito che non scade (Discord → Invita persone → Modifica link d'invito → Scadenza: Mai).</span></div></div>
     <div class="pannello" style="margin-top:16px"><h3 style="font-size:22px;margin-bottom:10px">Regolamento</h3>
       <div class="campo"><label for="t-reg">Testo</label><textarea id="t-reg" style="min-height:320px">${esc(ed.regolamento)}</textarea><span class="aiuto">Scrivi "# " all'inizio di una riga per un titolo. Lascia una riga vuota tra le sezioni.</span></div></div>
     <div class="salva-barra"><button class="btn" type="submit">Salva testi e date</button></div>
@@ -909,7 +917,7 @@ document.addEventListener("submit", async (e) => {
       tetto: Number($("#t-tetto").value), biglietti_sfida: Number($("#t-big").value), biscotti_partecipazione: Number($("#t-bisc").value),
       posta_testi: { titolo: $("#t-ptit").value, testo: $("#t-ptes").value, esempio: $("#t-pes").value },
     };
-    try { await putJson("/api/admin/edizione", body); toast("Testi e date salvati"); await carica(); }
+    try { await putJson("/api/admin/edizione", body); await putJson("/api/admin/invito", { link: $("#t-invito").value }); toast("Testi e date salvati"); await carica(); }
     catch (err) { toast(err.message); }
   }
 });
@@ -922,7 +930,9 @@ $("#sim-reset").addEventListener("click", () => { setSim(""); carica(); });
 /* ---------- avvio ---------- */
 (async () => {
   const q = new URLSearchParams(location.search);
-  if (q.get("accesso")) { toast(ACCESSO[q.get("accesso")] || "Accesso non riuscito"); history.replaceState(null, "", location.pathname + location.hash); }
+  if (q.get("accesso") === "server") mostraInvito();
+  else if (q.get("accesso")) toast(ACCESSO[q.get("accesso")] || "Accesso non riuscito");
+  if (q.get("accesso")) history.replaceState(null, "", location.pathname + location.hash);
   leggiHash();
   try { await carica(); }
   catch (e) { $("#vista").innerHTML = `<div class="avviso"><p>${esc(e.message)}</p></div>`; }
@@ -1964,3 +1974,11 @@ document.addEventListener("click", async (e) => {
     await carica();
   } catch (err) { toast(err.message); a.disabled = false; }
 });
+
+// Chi ha fatto l'accesso ma non è nel server Discord: riquadro con il link per entrare (disegnato da renderTesta)
+async function mostraInvito() {
+  let link = "";
+  try { link = (await api("/api/invito")).link || ""; } catch {}
+  S.invito = link;
+  if (S.dati) renderTesta();
+}

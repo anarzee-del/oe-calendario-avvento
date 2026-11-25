@@ -117,6 +117,20 @@ async function route(req, env, url, user, ed, ctx) {
 
   // Chi è online: chi ha usato il sito negli ultimi 5 minuti (account di prova esclusi).
   // Il numero lo vedono tutti, i nomi solo lo staff.
+  // Link d'invito al server Discord, mostrato a chi prova a entrare senza far parte del server
+  if (p === "/api/invito" && m === "GET") {
+    const r = await env.DB.prepare("SELECT value FROM settings WHERE key='invito_discord'").first();
+    return json({ link: r?.value || "" });
+  }
+  if (p === "/api/admin/invito" && m === "PUT") {
+    if (user?.role !== "admin") return err(403, "Area riservata allo staff");
+    const b = await readJson(req);
+    const link = String(b?.link || "").trim();
+    if (link && !/^https:\/\/(discord\.gg|(www\.)?discord\.com\/invite)\/[A-Za-z0-9-]+\/?$/.test(link))
+      return err(400, "Il link d'invito deve essere del tipo https://discord.gg/… (copialo da Discord → Invita persone)");
+    await env.DB.prepare("INSERT INTO settings(key,value) VALUES('invito_discord',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(link).run();
+    return json({ ok: true });
+  }
   if (p === "/api/presenza" && m === "GET") {
     const da = Date.now() - 5 * 60000;
     const r = await env.DB.prepare("SELECT COUNT(*) AS c FROM users WHERE last_seen>? AND tester=0").bind(da).first();
