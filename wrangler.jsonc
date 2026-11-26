@@ -32,6 +32,12 @@
       "binding": "DB",
       "database_name": "oe-avvento",
       "database_id": "82f1395b-8101-4fe0-bed9-1713cd6e2fac"
+    },
+    // Sito principale ourelysion.com: dati dei giocatori condivisi (tabella "profili", vedi src/profilo-comune.js)
+    {
+      "binding": "OE",
+      "database_name": "oe-home",
+      "database_id": "b40530e6-106b-479c-9564-18f4c24834e5"
     }
   ],
 

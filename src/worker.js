@@ -1,4 +1,5 @@
 // Calendario dell'Avvento di Our Elysion — worker principale (API)
+import { prendiDaSito, mandaAlSito } from "./profilo-comune.js";
 import { ensureSchema, currentEdition } from "./db.js";
 import { handleAuth, currentUser, getCookie } from "./auth.js";
 import { romeNow, editionDays, dayState, weekday, isIsoDate, addDays } from "./time.js";
@@ -186,6 +187,7 @@ async function route(req, env, url, user, ed, ctx) {
     if (typeof b?.free_trial !== "boolean" && user.free_trial == null) return err(400, "Dicci se giochi con la free trial");
     const ft = typeof b?.free_trial === "boolean" ? (b.free_trial ? 1 : 0) : user.free_trial;
     await env.DB.prepare("UPDATE users SET pg=?, dc=?, mondo=?, free_trial=? WHERE id=?").bind(pg, dc, mondo, ft, user.id).run();
+    await mandaAlSito(env, user.id, { pg, dc, mondo, free_trial: ft });
     return json({ ok: true });
   }
   // risposta veloce per chi aveva già il profilo prima della domanda sulla free trial
@@ -194,6 +196,7 @@ async function route(req, env, url, user, ed, ctx) {
     const b = await readJson(req);
     if (typeof b?.free_trial !== "boolean") return err(400, "Risposta non valida");
     await env.DB.prepare("UPDATE users SET free_trial=? WHERE id=?").bind(b.free_trial ? 1 : 0, user.id).run();
+    await mandaAlSito(env, user.id, { free_trial: b.free_trial });
     return json({ ok: true });
   }
 
@@ -405,6 +408,7 @@ async function stato(env, url, user, ed, ctx) {
     if (provaCorrente) staffEd = { prova: corrente, vera: base || corrente - 7000, vista: ed.year };
   }
 
+  if (user) await prendiDaSito(env, user); // dati già dati sul sito principale (free trial, personaggio)
   return json({
     staff_ed: staffEd,
     bonus,
